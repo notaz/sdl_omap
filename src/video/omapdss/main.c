@@ -1,33 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <ctype.h>
 #include <sys/time.h>
 #include <SDL/SDL.h>
 
 #include "pmsdl.h"
+#include "common/input.h"
 #include "linux/fbdev.h"
-
-#define err(fmt, ...) fprintf(stderr, "psdl: " fmt "\n", ##__VA_ARGS__)
-#if 0
-#define trace(fmt, ...) printf(" %s(" fmt ")\n", __FUNCTION__, ##__VA_ARGS__)
-#define dbg err
-#else
-#define trace(...)
-#define dbg(...)
-#endif
+#include "linux/oshide.h"
 
 static SDL_Surface *g_screen;
 static void *g_screen_fbp;
 static Uint16 g_8bpp_pal[256];
 static Uint32 g_start_ticks;
-static Uint8 g_keystate[SDLK_LAST];
 
 static inline int min(int v1, int v2)
 {
 	return v1 < v2 ? v1 : v2;
 }
-
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 static SDL_Surface *alloc_surface(int w, int h, int bpp)
 {
@@ -54,10 +46,77 @@ static SDL_Surface *alloc_surface(int w, int h, int bpp)
 	return &ret->s;
 }
 
+static char *sskip(char *p)
+{
+	while (*p && isspace(*p))
+		p++;
+	return p;
+}
+
+static char *nsskip(char *p)
+{
+	while (*p && !isspace(*p))
+		p++;
+	return p;
+}
+
+static int check_token(const char *p, const char *token)
+{
+	int tlen = strlen(token);
+	return strncasecmp(p, token, tlen) == 0 && isspace(p[tlen]);
+}
+
+static void do_config(void)
+{
+	char buff[256];
+	FILE *f;
+
+	f = fopen("pmsdl.cfg", "r");
+	if (f == NULL)
+		return;
+
+	while (!feof(f)) {
+		char *p, *line = fgets(buff, sizeof(buff), f);
+		if (line == NULL)
+			break;
+		p = line = sskip(line);
+		if (*p == '#')
+			continue;
+
+		if (check_token(p, "bind")) {
+			char *key, *key_end, *sdlkey, *sdlkey_end;
+			key = sskip(p + 5);
+			key_end = nsskip(key);
+			p = sskip(key_end);
+			if (*p != '=')
+				goto bad;
+			sdlkey = sskip(p + 1);
+			sdlkey_end = nsskip(sdlkey);
+			p = sskip(sdlkey_end);
+			if (*key == 0 || *sdlkey == 0 || *p != 0)
+				goto bad;
+			*key_end = *sdlkey_end = 0;
+
+			pmsdl_input_bind(key, sdlkey);
+			continue;
+		}
+
+bad:
+		err("config: failed to parse: %s", line);
+	}
+	fclose(f);
+}
+
 DECLSPEC int SDLCALL
 SDL_Init(Uint32 flags)
 {
 	trace("%08x", flags);
+
+	if (g_start_ticks == 0) {
+		pmsdl_input_init();
+		oshide_init();
+		do_config();
+	}
 
 	g_start_ticks = 0;
 	g_start_ticks = SDL_GetTicks();
@@ -69,6 +128,11 @@ DECLSPEC void SDLCALL
 SDL_Quit(void)
 {
 	trace("");
+
+	if (g_start_ticks != 0) {
+		oshide_finish();
+		g_start_ticks = 0;
+	}
 }
 
 DECLSPEC int SDLCALL
@@ -105,6 +169,9 @@ SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
 	struct vout_fbdev *fbdev;
 
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
+
+	if (bpp == 0)
+		bpp = 16;
 
 	if (bpp != 8 && bpp != 16) {
 		err("unsupported bpp: %d\n", bpp);
@@ -159,7 +226,7 @@ SDL_Flip(SDL_Surface *screen)
 
 	if (screen->format->BitsPerPixel == 8) {
 		int l = screen->pitch * screen->h;
-#if 1
+#ifdef __arm__
 		do_clut(g_screen_fbp, screen->pixels, g_8bpp_pal, l);
 #else
 		Uint16 *d = g_screen_fbp;
@@ -262,7 +329,8 @@ SDL_UpperBlit(SDL_Surface *src, SDL_Rect *srcrect,
 		for (sw *= Bpp; sh > 0; d += dpitch, s += spitch, sh--)
 			memcpy(d, s, sw);
 	}
-	// else TODO
+	else
+		not_supported();
 
 	return 0;
 }
@@ -325,8 +393,8 @@ SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, Uint32 color)
 {
 	trace("%p, %p, %04x", dst, dstrect, color);
 
-	if (dst->format->BytesPerPixel == 2) {
-		err("SDL_FillRect TODO");
+	if (dst->format->BytesPerPixel != 1) {
+		not_supported();
 		return -1;
 	}
 	else
@@ -398,7 +466,7 @@ SDL_LoadBMP_RW(SDL_RWops *src, int freesrc)
 	} __attribute__((packed)) bmp;
 	SDL_Surface *ret = NULL;
 	int data_size, read_size;
-	uint8_t *tmp_buf;
+	uint8_t *tmp_buf = NULL;
 	int i, bytespp;
 	FILE *f;
 
@@ -505,30 +573,6 @@ SDL_SetColorKey(SDL_Surface *surface, Uint32 flag, Uint32 key)
 {
 	trace("%p, %08x, %04x", surface, flag, key);
 	return 0;
-}
-
-DECLSPEC SDL_Joystick * SDLCALL
-SDL_JoystickOpen(int device_index)
-{
-	trace("%d", device_index);
-	return NULL;
-}
-
-DECLSPEC int SDLCALL
-SDL_PollEvent(SDL_Event *event)
-{
-	trace("%p", event);
-	return 0;
-}
-
-DECLSPEC Uint8 * SDLCALL
-SDL_GetKeyState(int *numkeys)
-{
-	trace("%p", numkeys);
-
-	if (numkeys != NULL)
-		*numkeys = ARRAY_SIZE(g_keystate);
-	return g_keystate;
 }
 
 DECLSPEC void SDLCALL
