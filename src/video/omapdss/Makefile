@@ -8,14 +8,14 @@ endif
 ARCH ?= arm
 
 TARGET = libSDL-1.2.so.0
-OBJS += main.o pmsdl_input.o \
+OBJS += standalone.o input.o config.o \
 	common/input.o linux/fbdev.o linux/in_evdev.o linux/oshide.o linux/plat.o
 ifeq ($(ARCH),arm)
 OBJS += arm_utils.o
 else
 CFLAGS += -fPIC
 endif
-CFLAGS += -DIN_EVDEV
+CFLAGS += -DIN_EVDEV -DSTANDALONE
 
 all: $(TARGET)
 
@@ -25,4 +25,4 @@ $(TARGET): $(OBJS)
 clean:
 	$(RM) $(TARGET) $(OBJS)
 
-*.o: pmsdl.h
+*.o: omapsdl.h

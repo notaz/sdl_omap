@@ -1,8 +1,15 @@
+/*
+ * (C) notaz, 2010
+ *
+ * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
+ * See the COPYING file in the top-level directory.
+ */
+
 #include <strings.h>
 #include <SDL/SDL.h>
 #include <linux/input.h>
 
-#include "pmsdl.h"
+#include "omapsdl.h"
 #include "common/input.h"
 
 static unsigned char g_keystate[SDLK_LAST];
@@ -333,7 +340,7 @@ static const char *sdl_keynames[SDLK_LAST] = {
 	DNKEY(COMPOSE),
 };
 
-void pmsdl_input_bind(const char *kname, const char *sdlname)
+void omapsdl_input_bind(const char *kname, const char *sdlname)
 {
 	int i, kc;
 
@@ -363,14 +370,15 @@ bad_sdlkey:
 	err("can't resolve SDL key '%s'", sdlname);
 }
 
-void pmsdl_input_init(void)
+void omapsdl_input_init(void)
 {
 	in_init();
 	in_probe();
 }
 
-static int do_event(SDL_Event *event, int timeout)
+int omapsdl_input_get_event(void *event_, int timeout)
 {
+	SDL_Event *event = event_;
 	int key, is_down;
 
 	while (1) {
@@ -402,12 +410,14 @@ static int do_event(SDL_Event *event, int timeout)
 }
 
 /* SDL */
+#ifdef STANDALONE
+
 DECLSPEC int SDLCALL
 SDL_WaitEvent(SDL_Event *event)
 {
 	trace("%p", event);
 
-	return do_event(event, -1);
+	return omapsdl_input_get_event(event, -1);
 }
 
 DECLSPEC int SDLCALL
@@ -415,7 +425,7 @@ SDL_PollEvent(SDL_Event *event)
 {
 	trace("%p", event);
 
-	return do_event(event, 0);
+	return omapsdl_input_get_event(event, 0);
 }
 
 DECLSPEC Uint8 * SDLCALL
@@ -505,3 +515,4 @@ SDL_JoystickOpen(int device_index)
 	return NULL;
 }
 
+#endif // STANDALONE

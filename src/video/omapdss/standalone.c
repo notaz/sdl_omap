@@ -1,12 +1,17 @@
+/*
+ * (C) notaz, 2010
+ *
+ * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
+ * See the COPYING file in the top-level directory.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <strings.h>
-#include <ctype.h>
 #include <sys/time.h>
 #include <SDL/SDL.h>
 
-#include "pmsdl.h"
+#include "omapsdl.h"
 #include "common/input.h"
 #include "linux/fbdev.h"
 #include "linux/oshide.h"
@@ -46,76 +51,15 @@ static SDL_Surface *alloc_surface(int w, int h, int bpp)
 	return &ret->s;
 }
 
-static char *sskip(char *p)
-{
-	while (*p && isspace(*p))
-		p++;
-	return p;
-}
-
-static char *nsskip(char *p)
-{
-	while (*p && !isspace(*p))
-		p++;
-	return p;
-}
-
-static int check_token(const char *p, const char *token)
-{
-	int tlen = strlen(token);
-	return strncasecmp(p, token, tlen) == 0 && isspace(p[tlen]);
-}
-
-static void do_config(void)
-{
-	char buff[256];
-	FILE *f;
-
-	f = fopen("pmsdl.cfg", "r");
-	if (f == NULL)
-		return;
-
-	while (!feof(f)) {
-		char *p, *line = fgets(buff, sizeof(buff), f);
-		if (line == NULL)
-			break;
-		p = line = sskip(line);
-		if (*p == '#')
-			continue;
-
-		if (check_token(p, "bind")) {
-			char *key, *key_end, *sdlkey, *sdlkey_end;
-			key = sskip(p + 5);
-			key_end = nsskip(key);
-			p = sskip(key_end);
-			if (*p != '=')
-				goto bad;
-			sdlkey = sskip(p + 1);
-			sdlkey_end = nsskip(sdlkey);
-			p = sskip(sdlkey_end);
-			if (*key == 0 || *sdlkey == 0 || *p != 0)
-				goto bad;
-			*key_end = *sdlkey_end = 0;
-
-			pmsdl_input_bind(key, sdlkey);
-			continue;
-		}
-
-bad:
-		err("config: failed to parse: %s", line);
-	}
-	fclose(f);
-}
-
 DECLSPEC int SDLCALL
 SDL_Init(Uint32 flags)
 {
 	trace("%08x", flags);
 
 	if (g_start_ticks == 0) {
-		pmsdl_input_init();
+		omapsdl_input_init();
 		oshide_init();
-		do_config();
+		omapsdl_config();
 	}
 
 	g_start_ticks = 0;
