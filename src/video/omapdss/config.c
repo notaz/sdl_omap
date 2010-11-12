@@ -6,11 +6,14 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include <ctype.h>
 
 #include "omapsdl.h"
+
+int gcfg_force_vsync;
 
 static char *sskip(char *p)
 {
@@ -26,10 +29,26 @@ static char *nsskip(char *p)
 	return p;
 }
 
-static int check_token(const char *p, const char *token)
+static int check_token(char **p_, const char *token)
 {
+	char *p = *p_;
 	int tlen = strlen(token);
-	return strncasecmp(p, token, tlen) == 0 && isspace(p[tlen]);
+	int ret = strncasecmp(p, token, tlen) == 0 && isspace(p[tlen]);
+	if (ret)
+		*p_ = sskip(p + tlen + 1);
+
+	return ret;
+}
+
+static int check_token_eq(char **p_, const char *token)
+{
+	char *p = *p_;
+	int ret = check_token(&p, token);
+	ret = ret && *p == '=';
+	if (ret)
+		*p_ = sskip(p + 1);
+
+	return ret;
 }
 
 void omapsdl_config(void)
@@ -49,9 +68,9 @@ void omapsdl_config(void)
 		if (*p == '#')
 			continue;
 
-		if (check_token(p, "bind")) {
+		if (check_token(&p, "bind")) {
 			char *key, *key_end, *sdlkey, *sdlkey_end;
-			key = sskip(p + 5);
+			key = p;
 			key_end = nsskip(key);
 			p = sskip(key_end);
 			if (*p != '=')
@@ -64,6 +83,10 @@ void omapsdl_config(void)
 			*key_end = *sdlkey_end = 0;
 
 			omapsdl_input_bind(key, sdlkey);
+			continue;
+		}
+		else if (check_token_eq(&p, "force_vsync")) {
+			gcfg_force_vsync = strtol(p, NULL, 0);
 			continue;
 		}
 

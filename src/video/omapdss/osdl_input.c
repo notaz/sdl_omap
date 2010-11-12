@@ -12,8 +12,6 @@
 #include "omapsdl.h"
 #include "common/input.h"
 
-static unsigned char g_keystate[SDLK_LAST];
-
 static short pmsdl_map[KEY_CNT] = {
 	[KEY_0]		= SDLK_0,
 	[KEY_1]		= SDLK_1,
@@ -376,23 +374,38 @@ void omapsdl_input_init(void)
 	in_probe();
 }
 
-int omapsdl_input_get_event(void *event_, int timeout)
+int omapsdl_input_get_event(int *is_down, int timeout)
 {
-	SDL_Event *event = event_;
-	int key, is_down;
+	int key;
 
 	while (1) {
 		int kc;
 
-		is_down = 0;
-		kc = in_update_keycode(NULL, &is_down, timeout);
+		*is_down = 0;
+		kc = in_update_keycode(NULL, is_down, timeout);
 		if (kc < 0 || kc > KEY_MAX)
-			return 0;
+			return -1;
 
 		key = pmsdl_map[kc];
 		if (key != 0)
 			break;
 	}
+
+	return key;
+}
+
+/* SDL */
+#ifdef STANDALONE
+
+static unsigned char g_keystate[SDLK_LAST];
+
+static int do_event(SDL_Event *event, int timeout)
+{
+	int key, is_down;
+
+	key = omapsdl_input_get_event(&is_down, timeout);
+	if (key < 0)
+		return 0;
 
 	g_keystate[key] = is_down;
 
@@ -409,15 +422,12 @@ int omapsdl_input_get_event(void *event_, int timeout)
 	return 1;
 }
 
-/* SDL */
-#ifdef STANDALONE
-
 DECLSPEC int SDLCALL
 SDL_WaitEvent(SDL_Event *event)
 {
 	trace("%p", event);
 
-	return omapsdl_input_get_event(event, -1);
+	return do_event(event, -1);
 }
 
 DECLSPEC int SDLCALL
@@ -425,7 +435,7 @@ SDL_PollEvent(SDL_Event *event)
 {
 	trace("%p", event);
 
-	return omapsdl_input_get_event(event, 0);
+	return do_event(event, 0);
 }
 
 DECLSPEC Uint8 * SDLCALL
