@@ -13,7 +13,8 @@
 
 void omapsdl_input_init(void);
 void omapsdl_input_bind(const char *kname, const char *sdlname);
-int  omapsdl_input_get_event(int *is_down, int timeout);
+int  omapsdl_input_get_events(int timeout,
+		int (*cb)(void *cb_arg, int sdl_kc, int is_pressed), void *cb_arg);
 
 void omapsdl_config(void);
 

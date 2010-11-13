@@ -1,5 +1,5 @@
 /*
- * (C) notaz, 2010
+ * (C) Gražvydas "notaz" Ignotas, 2010
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
@@ -12,7 +12,6 @@
 #include <SDL/SDL.h>
 
 #include "omapsdl.h"
-#include "common/input.h"
 #include "linux/fbdev.h"
 #include "linux/oshide.h"
 

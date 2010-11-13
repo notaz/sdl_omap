@@ -1,18 +1,27 @@
 /*
- * (C) notaz, 2010
+ * (C) Gražvydas "notaz" Ignotas, 2010
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
  */
 
 #include <strings.h>
-#include <SDL/SDL.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <time.h>
+#include <errno.h>
 #include <linux/input.h>
+#include <SDL/SDL.h>
 
 #include "omapsdl.h"
-#include "common/input.h"
 
-static short pmsdl_map[KEY_CNT] = {
+static int osdl_evdev_devs[32];
+static int osdl_evdev_dev_count;
+
+static short osdl_evdev_map[KEY_CNT] = {
 	[KEY_0]		= SDLK_0,
 	[KEY_1]		= SDLK_1,
 	[KEY_2]		= SDLK_2,
@@ -113,8 +122,93 @@ static short pmsdl_map[KEY_CNT] = {
 	[KEY_RIGHTCTRL]	= SDLK_RCTRL,
 };
 
+static const char * const osdl_evdev_keys[KEY_CNT] = {
+	[KEY_RESERVED] = "Reserved",		[KEY_ESC] = "Esc",
+	[KEY_1] = "1",				[KEY_2] = "2",
+	[KEY_3] = "3",				[KEY_4] = "4",
+	[KEY_5] = "5",				[KEY_6] = "6",
+	[KEY_7] = "7",				[KEY_8] = "8",
+	[KEY_9] = "9",				[KEY_0] = "0",
+	[KEY_MINUS] = "Minus",			[KEY_EQUAL] = "Equal",
+	[KEY_BACKSPACE] = "Backspace",		[KEY_TAB] = "Tab",
+	[KEY_Q] = "Q",				[KEY_W] = "W",
+	[KEY_E] = "E",				[KEY_R] = "R",
+	[KEY_T] = "T",				[KEY_Y] = "Y",
+	[KEY_U] = "U",				[KEY_I] = "I",
+	[KEY_O] = "O",				[KEY_P] = "P",
+	[KEY_LEFTBRACE] = "LeftBrace",		[KEY_RIGHTBRACE] = "RightBrace",
+	[KEY_ENTER] = "Enter",			[KEY_LEFTCTRL] = "LeftControl",
+	[KEY_A] = "A",				[KEY_S] = "S",
+	[KEY_D] = "D",				[KEY_F] = "F",
+	[KEY_G] = "G",				[KEY_H] = "H",
+	[KEY_J] = "J",				[KEY_K] = "K",
+	[KEY_L] = "L",				[KEY_SEMICOLON] = "Semicolon",
+	[KEY_APOSTROPHE] = "Apostrophe",	[KEY_GRAVE] = "Grave",
+	[KEY_LEFTSHIFT] = "LeftShift",		[KEY_BACKSLASH] = "BackSlash",
+	[KEY_Z] = "Z",				[KEY_X] = "X",
+	[KEY_C] = "C",				[KEY_V] = "V",
+	[KEY_B] = "B",				[KEY_N] = "N",
+	[KEY_M] = "M",				[KEY_COMMA] = "Comma",
+	[KEY_DOT] = "Dot",			[KEY_SLASH] = "Slash",
+	[KEY_RIGHTSHIFT] = "RightShift",	[KEY_KPASTERISK] = "KPAsterisk",
+	[KEY_LEFTALT] = "LeftAlt",		[KEY_SPACE] = "Space",
+	[KEY_CAPSLOCK] = "CapsLock",		[KEY_F1] = "F1",
+	[KEY_F2] = "F2",			[KEY_F3] = "F3",
+	[KEY_F4] = "F4",			[KEY_F5] = "F5",
+	[KEY_F6] = "F6",			[KEY_F7] = "F7",
+	[KEY_F8] = "F8",			[KEY_F9] = "F9",
+	[KEY_F10] = "F10",			[KEY_NUMLOCK] = "NumLock",
+	[KEY_SCROLLLOCK] = "ScrollLock",	[KEY_KP7] = "KP7",
+	[KEY_KP8] = "KP8",			[KEY_KP9] = "KP9",
+	[KEY_KPMINUS] = "KPMinus",		[KEY_KP4] = "KP4",
+	[KEY_KP5] = "KP5",			[KEY_KP6] = "KP6",
+	[KEY_KPPLUS] = "KPPlus",		[KEY_KP1] = "KP1",
+	[KEY_KP2] = "KP2",			[KEY_KP3] = "KP3",
+	[KEY_KP0] = "KP0",			[KEY_KPDOT] = "KPDot",
+	[KEY_ZENKAKUHANKAKU] = "Zenkaku/Hankaku", [KEY_102ND] = "102nd",
+	[KEY_F11] = "F11",			[KEY_F12] = "F12",
+	[KEY_KPJPCOMMA] = "KPJpComma",		[KEY_KPENTER] = "KPEnter",
+	[KEY_RIGHTCTRL] = "RightCtrl",		[KEY_KPSLASH] = "KPSlash",
+	[KEY_SYSRQ] = "SysRq",			[KEY_RIGHTALT] = "RightAlt",
+	[KEY_LINEFEED] = "LineFeed",		[KEY_HOME] = "Home",
+	[KEY_UP] = "Up",			[KEY_PAGEUP] = "PageUp",
+	[KEY_LEFT] = "Left",			[KEY_RIGHT] = "Right",
+	[KEY_END] = "End",			[KEY_DOWN] = "Down",
+	[KEY_PAGEDOWN] = "PageDown",		[KEY_INSERT] = "Insert",
+	[KEY_DELETE] = "Delete",		[KEY_MACRO] = "Macro",
+	[KEY_HELP] = "Help",			[KEY_MENU] = "Menu",
+	[KEY_COFFEE] = "Coffee",		[KEY_DIRECTION] = "Direction",
+	[BTN_0] = "Btn0",			[BTN_1] = "Btn1",
+	[BTN_2] = "Btn2",			[BTN_3] = "Btn3",
+	[BTN_4] = "Btn4",			[BTN_5] = "Btn5",
+	[BTN_6] = "Btn6",			[BTN_7] = "Btn7",
+	[BTN_8] = "Btn8",			[BTN_9] = "Btn9",
+	[BTN_LEFT] = "LeftBtn",			[BTN_RIGHT] = "RightBtn",
+	[BTN_MIDDLE] = "MiddleBtn",		[BTN_SIDE] = "SideBtn",
+	[BTN_EXTRA] = "ExtraBtn",		[BTN_FORWARD] = "ForwardBtn",
+	[BTN_BACK] = "BackBtn",			[BTN_TASK] = "TaskBtn",
+	[BTN_TRIGGER] = "Trigger",		[BTN_THUMB] = "ThumbBtn",
+	[BTN_THUMB2] = "ThumbBtn2",		[BTN_TOP] = "TopBtn",
+	[BTN_TOP2] = "TopBtn2",			[BTN_PINKIE] = "PinkieBtn",
+	[BTN_BASE] = "BaseBtn",			[BTN_BASE2] = "BaseBtn2",
+	[BTN_BASE3] = "BaseBtn3",		[BTN_BASE4] = "BaseBtn4",
+	[BTN_BASE5] = "BaseBtn5",		[BTN_BASE6] = "BaseBtn6",
+	[BTN_DEAD] = "BtnDead",			[BTN_A] = "BtnA",
+	[BTN_B] = "BtnB",			[BTN_C] = "BtnC",
+	[BTN_X] = "BtnX",			[BTN_Y] = "BtnY",
+	[BTN_Z] = "BtnZ",			[BTN_TL] = "BtnTL",
+	[BTN_TR] = "BtnTR",			[BTN_TL2] = "BtnTL2",
+	[BTN_TR2] = "BtnTR2",			[BTN_SELECT] = "BtnSelect",
+	[BTN_START] = "BtnStart",		[BTN_MODE] = "BtnMode",
+	[BTN_THUMBL] = "BtnThumbL",		[BTN_THUMBR] = "BtnThumbR",
+	[BTN_TOUCH] = "Touch",			[BTN_STYLUS] = "Stylus",
+	[BTN_STYLUS2] = "Stylus2",		[BTN_TOOL_DOUBLETAP] = "Tool Doubletap",
+	[BTN_TOOL_TRIPLETAP] = "Tool Tripletap", [BTN_GEAR_DOWN] = "WheelBtn",
+	[BTN_GEAR_UP] = "Gear up",		[KEY_OK] = "Ok",
+};
+
 #define DNKEY(x) [SDLK_##x] = #x
-static const char *sdl_keynames[SDLK_LAST] = {
+static const char * const sdl_keynames[SDLK_LAST] = {
 	DNKEY(BACKSPACE),
 	DNKEY(TAB),
 	DNKEY(RETURN),
@@ -342,56 +436,174 @@ void omapsdl_input_bind(const char *kname, const char *sdlname)
 {
 	int i, kc;
 
-	kc = in_get_key_code(-1, kname);
-	if (kc < 0) {
-		err("can't resolve key '%s'", kname);
-		return;
+	if (kname == NULL || strncasecmp(kname, "ev_", 3) != 0)
+		goto bad_ev_key;
+
+	for (i = 0; i < ARRAY_SIZE(osdl_evdev_keys); i++) {
+		if (osdl_evdev_keys[i] == NULL)
+			continue;
+		if (strcasecmp(osdl_evdev_keys[i], kname + 3) == 0)
+			break;
 	}
+
+	if (i >= ARRAY_SIZE(osdl_evdev_keys))
+		goto bad_ev_key;
+	kc = i;
 
 	if (sdlname == NULL || strncasecmp(sdlname, "SDLK_", 5) != 0)
 		goto bad_sdlkey;
 
-	for (i = 0; i < SDLK_LAST; i++) {
+	for (i = 0; i < ARRAY_SIZE(sdl_keynames); i++) {
 		if (sdl_keynames[i] == NULL)
 			continue;
 		if (strcasecmp(sdl_keynames[i], sdlname + 5) == 0)
 			break;
 	}
 
-	if (i >= SDLK_LAST)
+	if (i >= ARRAY_SIZE(sdl_keynames))
 		goto bad_sdlkey;
 
-	pmsdl_map[kc] = i;
+	osdl_evdev_map[kc] = i;
+	return;
+
+bad_ev_key:
+	err("can't resolve evdev key '%s'", kname);
 	return;
 
 bad_sdlkey:
 	err("can't resolve SDL key '%s'", sdlname);
 }
 
+#define KEYBITS_BIT(keybits, x) (keybits[(x)/sizeof(keybits[0])/8] & \
+	(1 << ((x) & (sizeof(keybits[0])*8-1))))
+
 void omapsdl_input_init(void)
 {
-	in_init();
-	in_probe();
-}
+	long keybits[KEY_CNT / sizeof(long) / 8];
+	int i;
 
-int omapsdl_input_get_event(int *is_down, int timeout)
-{
-	int key;
+	// the kernel might support and return less keys then we know about,
+	// so make sure the buffer is clear.
+	memset(keybits, 0, sizeof(keybits));
 
-	while (1) {
-		int kc;
+	for (i = 0;; i++)
+	{
+		int support = 0, count = 0;
+		int u, ret, fd;
+		char name[64];
 
-		*is_down = 0;
-		kc = in_update_keycode(NULL, is_down, timeout);
-		if (kc < 0 || kc > KEY_MAX)
-			return -1;
-
-		key = pmsdl_map[kc];
-		if (key != 0)
+		snprintf(name, sizeof(name), "/dev/input/event%d", i);
+		fd = open(name, O_RDONLY|O_NONBLOCK);
+		if (fd == -1) {
+			if (errno == EACCES)
+				continue;	/* maybe we can access next one */
 			break;
+		}
+
+		/* check supported events */
+		ret = ioctl(fd, EVIOCGBIT(0, sizeof(support)), &support);
+		if (ret == -1) {
+			printf("in_evdev: ioctl failed on %s\n", name);
+			goto skip;
+		}
+
+		if (!(support & (1 << EV_KEY)))
+			goto skip;
+
+		ret = ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keybits)), keybits);
+		if (ret == -1) {
+			printf("in_evdev: ioctl failed on %s\n", name);
+			goto skip;
+		}
+
+		/* check for interesting keys */
+		for (u = 0; u < KEY_CNT; u++) {
+			if (KEYBITS_BIT(keybits, u)) {
+				if (u != KEY_POWER && u != KEY_SLEEP && u != BTN_TOUCH)
+					count++;
+			}
+		}
+
+		if (count == 0)
+			goto skip;
+
+		osdl_evdev_devs[osdl_evdev_dev_count++] = fd;
+		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
+		printf("in_evdev: found \"%s\" with %d events (type %08x)\n",
+			name, count, support);
+		continue;
+
+skip:
+		close(fd);
 	}
 
-	return key;
+	printf("found %d evdev devices.\n", osdl_evdev_dev_count);
+}
+
+int omapsdl_input_get_events(int timeout_ms,
+		int (*cb)(void *cb_arg, int sdl_kc, int is_pressed), void *cb_arg)
+{
+	struct timeval tv, *timeout = NULL;
+	struct input_event ev;
+	int i, fdmax = -1;
+	fd_set fdset;
+
+	if (timeout_ms >= 0) {
+		tv.tv_sec = timeout_ms / 1000;
+		tv.tv_usec = (timeout_ms % 1000) * 1000;
+		timeout = &tv;
+	}
+
+	FD_ZERO(&fdset);
+	for (i = 0; i < osdl_evdev_dev_count; i++) {
+		if (osdl_evdev_devs[i] > fdmax)
+			fdmax = osdl_evdev_devs[i];
+		FD_SET(osdl_evdev_devs[i], &fdset);
+	}
+
+	while (1)
+	{
+		int fd, ret, sdl_kc;
+
+		ret = select(fdmax + 1, &fdset, NULL, NULL, timeout);
+		if (ret == -1)
+		{
+			perror("in_evdev: select failed");
+			return -1;
+		}
+		else if (ret == 0)
+			return -1; /* timeout */
+
+		for (i = 0; i < osdl_evdev_dev_count; i++) {
+			if (!FD_ISSET(osdl_evdev_devs[i], &fdset))
+				continue;
+
+			fd = osdl_evdev_devs[i];
+			while (1) {
+				ret = read(fd, &ev, sizeof(ev));
+				if (ret < (int)sizeof(ev)) {
+					if (errno != EAGAIN) {
+						perror("in_evdev: read failed");
+						return -1;
+					}
+					break;
+				}
+
+				if (ev.type != EV_KEY)
+					continue; /* not key event */
+				if ((unsigned int)ev.value > 1)
+					continue; /* not key up/down */
+				if ((unsigned int)ev.code >= ARRAY_SIZE(osdl_evdev_map))
+					continue; /* keycode from future */
+				sdl_kc = osdl_evdev_map[ev.code];
+				if (sdl_kc == 0)
+					continue; /* not mapped */
+				ret = cb(cb_arg, sdl_kc, ev.value);
+				if (ret != 0)
+					return ret;
+			}
+		}
+	}
 }
 
 /* SDL */
@@ -399,24 +611,39 @@ int omapsdl_input_get_event(int *is_down, int timeout)
 
 static unsigned char g_keystate[SDLK_LAST];
 
+struct key_event {
+	int sdl_kc;
+	int is_pressed;
+};
+
+static int do_key_cb(void *cb_arg, int sdl_kc, int is_pressed)
+{
+	struct key_event *ev = cb_arg;
+	ev->sdl_kc = sdl_kc;
+	ev->is_pressed = is_pressed;
+
+	return 1; /* done */
+}
+
 static int do_event(SDL_Event *event, int timeout)
 {
-	int key, is_down;
+	struct key_event ev;
+	int ret;
 
-	key = omapsdl_input_get_event(&is_down, timeout);
-	if (key < 0)
+	ret = omapsdl_input_get_events(timeout, do_key_cb, &ev);
+	if (ret < 0)
 		return 0;
 
-	g_keystate[key] = is_down;
+	g_keystate[ev.sdl_kc] = ev.is_pressed;
 
 	if (event == NULL)
 		return 1; // FIXME: ..but the event is lost
 
 	memset(event, 0, sizeof(event->key));
-	event->type = is_down ? SDL_KEYDOWN : SDL_KEYUP;
+	event->type = ev.is_pressed ? SDL_KEYDOWN : SDL_KEYUP;
 	// event->key.which =
-	event->key.state = is_down ? SDL_PRESSED : SDL_RELEASED;
-	event->key.keysym.sym = key;
+	event->key.state = ev.is_pressed ? SDL_PRESSED : SDL_RELEASED;
+	event->key.keysym.sym = ev.sdl_kc;
 	// event->key.keysym.mod
 
 	return 1;

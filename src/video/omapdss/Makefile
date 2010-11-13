@@ -9,13 +9,13 @@ ARCH ?= arm
 
 TARGET = libSDL-1.2.so.0
 OBJS += standalone.o osdl_input.o config.o \
-	common/input.o linux/fbdev.o linux/in_evdev.o linux/oshide.o linux/plat.o
+	linux/fbdev.o linux/oshide.o
 ifeq ($(ARCH),arm)
 OBJS += arm_utils.o
 else
 CFLAGS += -fPIC
 endif
-CFLAGS += -DIN_EVDEV -DSTANDALONE
+CFLAGS += -DSTANDALONE
 
 all: $(TARGET)
 
