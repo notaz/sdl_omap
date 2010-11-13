@@ -1606,6 +1606,24 @@ AC_HELP_STRING([--enable-video-gem], [use Atari Gem video driver [[default=yes]]
     fi
 }
 
+dnl OMAP
+CheckOMAPDSS()
+{
+    AC_ARG_ENABLE(video-omapdss,
+AC_HELP_STRING([--enable-video-omapdss], [use OMAP DSS2 video driver [[default=yes]]]),
+        , enable_video_omapdss=yes)
+
+    if test x$enable_video_omapdss = xyes; then
+        AC_DEFINE(SDL_VIDEO_DRIVER_OMAPDSS)
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/sdlif.c"
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/osdl_input.c"
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/config.c"
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/fbdev.c"
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/oshide.c"
+        have_video=yes
+    fi
+}
+
 dnl rcg04172001 Set up the Null video driver.
 CheckDummyVideo()
 {
@@ -2341,6 +2359,7 @@ case "$host" in
         CheckClockGettime
         CheckLinuxVersion
         CheckRPATH
+        CheckOMAPDSS
         # Set up files for the audio library
         if test x$enable_audio = xyes; then
           case $ARCH in

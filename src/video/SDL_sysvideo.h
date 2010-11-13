@@ -410,6 +410,9 @@ extern VideoBootStrap AALIB_bootstrap;
 #if SDL_VIDEO_DRIVER_CACA
 extern VideoBootStrap CACA_bootstrap;
 #endif
+#if SDL_VIDEO_DRIVER_OMAPDSS
+extern VideoBootStrap omapdss_bootstrap;
+#endif
 #if SDL_VIDEO_DRIVER_DUMMY
 extern VideoBootStrap DUMMY_bootstrap;
 #endif
