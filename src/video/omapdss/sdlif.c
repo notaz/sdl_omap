@@ -56,6 +56,7 @@ static void omap_VideoQuit(SDL_VideoDevice *this)
 		oshide_finish();
 	}
 	this->screen->pixels = NULL;
+	omapsdl_input_finish();
 }
 
 static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format, Uint32 flags)
@@ -179,7 +180,7 @@ static void omap_InitOSKeymap(SDL_VideoDevice *this)
 	trace();
 }
 
-static int event_cb(void *cb_arg, int sdl_kc, int is_pressed)
+static int key_event_cb(void *cb_arg, int sdl_kc, int is_pressed)
 {
 	SDL_keysym keysym = { 0, };
 
@@ -187,11 +188,24 @@ static int event_cb(void *cb_arg, int sdl_kc, int is_pressed)
 	SDL_PrivateKeyboard(is_pressed, &keysym);
 }
 
+static int ts_event_cb(void *cb_arg, int x, int y, unsigned int pressure)
+{
+	static int was_pressed;
+
+	SDL_PrivateMouseMotion(0, 0, x, y);
+
+	pressure = !!pressure;
+	if (pressure != was_pressed) {
+		SDL_PrivateMouseButton(pressure ? SDL_PRESSED : SDL_RELEASED, 1, 0, 0);
+		was_pressed = pressure;
+	}
+}
+
 static void omap_PumpEvents(SDL_VideoDevice *this) 
 {
 	trace();
 
-	omapsdl_input_get_events(0, event_cb, NULL);
+	omapsdl_input_get_events(0, key_event_cb, ts_event_cb, NULL);
 }
 
 static SDL_VideoDevice *omap_create(int devindex)

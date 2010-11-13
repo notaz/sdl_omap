@@ -15,11 +15,17 @@
 #include <errno.h>
 #include <linux/input.h>
 #include <SDL/SDL.h>
+#if SDL_INPUT_TSLIB
+#include <tslib.h>
+#endif
 
 #include "omapsdl.h"
 
+/* XXX: these should go to private data */
 static int osdl_evdev_devs[32];
 static int osdl_evdev_dev_count;
+static int osdl_tslib_fd;
+static struct tsdev *osdl_tslib_dev;
 
 static short osdl_evdev_map[KEY_CNT] = {
 	[KEY_0]		= SDLK_0,
@@ -480,10 +486,30 @@ bad_sdlkey:
 void omapsdl_input_init(void)
 {
 	long keybits[KEY_CNT / sizeof(long) / 8];
+	ino_t touchscreen_ino = (ino_t)-1;
+	struct stat stat_buf;
 	int i;
 
-	// the kernel might support and return less keys then we know about,
-	// so make sure the buffer is clear.
+#if SDL_INPUT_TSLIB
+	/* start with touchscreen so that we can skip it later */
+	osdl_tslib_dev = ts_open(SDL_getenv("TSLIB_TSDEVICE"), 1);
+	if (ts_config(osdl_tslib_dev) < 0) {
+		ts_close(osdl_tslib_dev);
+		osdl_tslib_dev = NULL;
+	}
+	if (osdl_tslib_dev != NULL) {
+		osdl_tslib_fd = ts_fd(osdl_tslib_dev);
+		osdl_evdev_devs[osdl_evdev_dev_count++] = osdl_tslib_fd;
+		if (fstat(osdl_tslib_fd, &stat_buf) == -1)
+			perror("fstat ts");
+		else
+			touchscreen_ino = stat_buf.st_ino;
+		printf("opened tslib touchscreen\n");
+	}
+#endif
+
+	/* the kernel might support and return less keys then we know about,
+	 * so make sure the buffer is clear. */
 	memset(keybits, 0, sizeof(keybits));
 
 	for (i = 0;; i++)
@@ -498,6 +524,16 @@ void omapsdl_input_init(void)
 			if (errno == EACCES)
 				continue;	/* maybe we can access next one */
 			break;
+		}
+
+		/* touchscreen check */
+		if (touchscreen_ino != (dev_t)-1) {
+			if (fstat(fd, &stat_buf) == -1)
+				perror("fstat");
+			else if (touchscreen_ino == stat_buf.st_ino) {
+				printf("skip %s as ts\n", name);
+				goto skip;
+			}
 		}
 
 		/* check supported events */
@@ -537,11 +573,31 @@ skip:
 		close(fd);
 	}
 
-	printf("found %d evdev devices.\n", osdl_evdev_dev_count);
+	printf("found %d evdev device(s).\n", osdl_evdev_dev_count);
+}
+
+void omapsdl_input_finish(void)
+{
+	int i;
+
+#if SDL_INPUT_TSLIB
+	if (osdl_tslib_dev != NULL)
+		ts_close(osdl_tslib_dev);
+#endif
+	osdl_tslib_dev = NULL;
+
+	for (i = 0; i < osdl_evdev_dev_count; i++) {
+		if (osdl_evdev_devs[i] != osdl_tslib_fd)
+			close(osdl_evdev_devs[i]);
+	}
+	osdl_evdev_dev_count = 0;
+	osdl_tslib_fd = 0;
 }
 
 int omapsdl_input_get_events(int timeout_ms,
-		int (*cb)(void *cb_arg, int sdl_kc, int is_pressed), void *cb_arg)
+		int (*key_cb)(void *cb_arg, int sdl_kc, int is_pressed),
+		int (*ts_cb)(void *cb_arg, int x, int y, unsigned int pressure),
+		void *cb_arg)
 {
 	struct timeval tv, *timeout = NULL;
 	struct input_event ev;
@@ -579,6 +635,22 @@ int omapsdl_input_get_events(int timeout_ms,
 				continue;
 
 			fd = osdl_evdev_devs[i];
+#if SDL_INPUT_TSLIB
+			if (fd == osdl_tslib_fd) {
+				if (ts_cb == NULL)
+					continue;
+				while (1) {
+					struct ts_sample tss;
+					ret = ts_read(osdl_tslib_dev, &tss, 1);
+					if (ret <= 0)
+						break;
+					ret = ts_cb(cb_arg, tss.x, tss.y, tss.pressure);
+					if (ret != 0)
+						return ret;
+				}
+				continue;
+			}
+#endif
 			while (1) {
 				ret = read(fd, &ev, sizeof(ev));
 				if (ret < (int)sizeof(ev)) {
@@ -598,7 +670,7 @@ int omapsdl_input_get_events(int timeout_ms,
 				sdl_kc = osdl_evdev_map[ev.code];
 				if (sdl_kc == 0)
 					continue; /* not mapped */
-				ret = cb(cb_arg, sdl_kc, ev.value);
+				ret = key_cb(cb_arg, sdl_kc, ev.value);
 				if (ret != 0)
 					return ret;
 			}
@@ -630,7 +702,7 @@ static int do_event(SDL_Event *event, int timeout)
 	struct key_event ev;
 	int ret;
 
-	ret = omapsdl_input_get_events(timeout, do_key_cb, &ev);
+	ret = omapsdl_input_get_events(timeout, do_key_cb, NULL, &ev);
 	if (ret < 0)
 		return 0;
 
