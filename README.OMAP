@@ -59,3 +59,9 @@ force_vsync = 1/0
 # bind ev_home = sdlk_space
 bind ev_<evdev_key> = <sdl_key>
 
+
+Source
+------
+
+Available at git://notaz.gp2x.de/~notaz/sdl_omap.git
+

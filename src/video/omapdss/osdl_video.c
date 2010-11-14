@@ -35,13 +35,13 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 
 	ret = ioctl(fd, OMAPFB_QUERY_PLANE, &pi);
 	if (ret != 0) {
-		perror("QUERY_PLANE");
+		err_perror("QUERY_PLANE");
 		return -1;
 	}
 
 	ret = ioctl(fd, OMAPFB_QUERY_MEM, &mi);
 	if (ret != 0) {
-		perror("QUERY_MEM");
+		err_perror("QUERY_MEM");
 		return -1;
 	}
 
@@ -50,13 +50,13 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 		pi.enabled = 0;
 		ret = ioctl(fd, OMAPFB_SETUP_PLANE, &pi);
 		if (ret != 0)
-			perror("SETUP_PLANE");
+			err_perror("SETUP_PLANE");
 	}
 
 	mi.size = mem;
 	ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
 	if (ret != 0) {
-		perror("SETUP_MEM");
+		err_perror("SETUP_MEM");
 		return -1;
 	}
 
@@ -68,7 +68,7 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 
 	ret = ioctl(fd, OMAPFB_SETUP_PLANE, &pi);
 	if (ret != 0) {
-		perror("SETUP_PLANE");
+		err_perror("SETUP_PLANE");
 		return -1;
 	}
 
@@ -82,16 +82,14 @@ static int read_sysfs(const char *fname, char *buff, size_t size)
 
 	f = fopen(fname, "r");
 	if (f == NULL) {
-		fprintf(stderr, "open %s: ", fname);
-		perror(NULL);
+		err_perror("open %s: ", fname);
 		return -1;
 	}
 
 	ret = fread(buff, 1, size - 1, f);
 	fclose(f);
 	if (ret <= 0) {
-		fprintf(stderr, "read %s: ", fname);
-		perror(NULL);
+		err_perror("read %s: ", fname);
 		return -1;
 	}
 
@@ -116,8 +114,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	fd = open(fbname, O_RDWR);
 	if (fd == -1) {
-		fprintf(stderr, "open %s: ", fbname);
-		perror(NULL);
+		err_perror("open %s", fbname);
 		return -1;
 	}
 
@@ -130,13 +127,13 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 		ret = ioctl(fd, OMAPFB_QUERY_PLANE, &slayer->pi);
 		if (ret != 0) {
-			perror("QUERY_PLANE");
+			err_perror("QUERY_PLANE");
 			return -1;
 		}
 
 		ret = ioctl(fd, OMAPFB_QUERY_MEM, &slayer->mi);
 		if (ret != 0) {
-			perror("QUERY_MEM");
+			err_perror("QUERY_MEM");
 			return -1;
 		}
 
@@ -147,8 +144,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	 * The only way to achieve this seems to be walking some sysfs files.. */
 	ret = stat(fbname, &status);
 	if (ret != 0) {
-		fprintf(stderr, "can't stat %s: ", fbname);
-		perror(NULL);
+		err_perror("can't stat %s", fbname);
 		return -1;
 	}
 	fb_id = minor(status.st_rdev);
@@ -156,21 +152,21 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	snprintf(buff, sizeof(buff), "/sys/class/graphics/fb%d/overlays", fb_id);
 	f = fopen(buff, "r");
 	if (f == NULL) {
-		fprintf(stderr, "can't open %s, skip screen detection\n", buff);
+		err("can't open %s, skip screen detection", buff);
 		goto skip_screen;
 	}
 
 	ret = fscanf(f, "%d", &overlay_id);
 	fclose(f);
 	if (ret != 1) {
-		fprintf(stderr, "can't parse %s, skip screen detection\n", buff);
+		err("can't parse %s, skip screen detection", buff);
 		goto skip_screen;
 	}
 
 	snprintf(buff, sizeof(buff), "/sys/devices/platform/omapdss/overlay%d/manager", overlay_id);
 	ret = read_sysfs(buff, screen_name, sizeof(screen_name));
 	if (ret < 0) {
-		fprintf(stderr, "skip screen detection\n");
+		err("skip screen detection");
 		goto skip_screen;
 	}
 
@@ -187,25 +183,25 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	}
 
 	if (screen_id < 0) {
-		fprintf(stderr, "could not find screen\n");
+		err("could not find screen");
 		goto skip_screen;
 	}
 
 	snprintf(buff, sizeof(buff), "/sys/devices/platform/omapdss/display%d/timings", screen_id);
 	f = fopen(buff, "r");
 	if (f == NULL) {
-		fprintf(stderr, "can't open %s, skip screen detection\n", buff);
+		err("can't open %s, skip screen detection", buff);
 		goto skip_screen;
 	}
 
 	ret = fscanf(f, "%*d,%d/%*d/%*d/%*d,%d/%*d/%*d/%*d", &screen_w, &screen_h);
 	fclose(f);
 	if (ret != 2) {
-		fprintf(stderr, "can't parse %s (%d), skip screen detection\n", buff, ret);
+		err("can't parse %s (%d), skip screen detection", buff, ret);
 		goto skip_screen;
 	}
 
-	printf("detected %dx%d '%s' (%d) screen attached to fb %d and overlay %d\n",
+	log("detected %dx%d '%s' (%d) screen attached to fb %d and overlay %d",
 		screen_w, screen_h, screen_name, screen_id, fb_id, overlay_id);
 
 skip_screen:
@@ -217,8 +213,8 @@ skip_screen:
 		else if (sscanf(tmp, "%dx%d", &w_, &h_) == 2)
 			w = w_, h = h_;
 		else
-			fprintf(stderr, "layer size specified incorrectly, "
-					"should be like 800x480");
+			err("layer size specified incorrectly, "
+				"should be like 800x480");
 	}
 
 	x = screen_w / 2 - w / 2;

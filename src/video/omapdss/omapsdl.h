@@ -7,8 +7,16 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
-#define err(fmt, ...) fprintf(stderr, "omapsdl: " fmt "\n", ##__VA_ARGS__)
-#define not_supported() fprintf(stderr, "omapsdl: %s not supported\n", __FUNCTION__)
+#define err(fmt, ...) \
+	fprintf(stderr, "omapsdl: " fmt "\n", ##__VA_ARGS__)
+#define err_perror(fmt, ...) do { \
+	fprintf(stderr, "omapsdl: " fmt ": ", ##__VA_ARGS__); \
+	perror(NULL); \
+} while (0)
+#define log(fmt, ...) \
+	fprintf(stdout, "omapsdl: " fmt "\n", ##__VA_ARGS__)
+#define not_supported() \
+	fprintf(stderr, "omapsdl: %s not supported\n", __FUNCTION__)
 #if 0
 #define trace(fmt, ...) printf(" %s(" fmt ")\n", __FUNCTION__, ##__VA_ARGS__)
 #define dbg err

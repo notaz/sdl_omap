@@ -501,10 +501,10 @@ void omapsdl_input_init(void)
 		osdl_tslib_fd = ts_fd(osdl_tslib_dev);
 		osdl_evdev_devs[osdl_evdev_dev_count++] = osdl_tslib_fd;
 		if (fstat(osdl_tslib_fd, &stat_buf) == -1)
-			perror("fstat ts");
+			err_perror("fstat ts");
 		else
 			touchscreen_ino = stat_buf.st_ino;
-		printf("opened tslib touchscreen\n");
+		log("opened tslib touchscreen");
 	}
 #endif
 
@@ -529,9 +529,9 @@ void omapsdl_input_init(void)
 		/* touchscreen check */
 		if (touchscreen_ino != (dev_t)-1) {
 			if (fstat(fd, &stat_buf) == -1)
-				perror("fstat");
+				err_perror("fstat");
 			else if (touchscreen_ino == stat_buf.st_ino) {
-				printf("skip %s as ts\n", name);
+				log("skip %s as ts", name);
 				goto skip;
 			}
 		}
@@ -539,7 +539,7 @@ void omapsdl_input_init(void)
 		/* check supported events */
 		ret = ioctl(fd, EVIOCGBIT(0, sizeof(support)), &support);
 		if (ret == -1) {
-			printf("in_evdev: ioctl failed on %s\n", name);
+			err_perror("in_evdev: ioctl failed on %s", name);
 			goto skip;
 		}
 
@@ -548,7 +548,7 @@ void omapsdl_input_init(void)
 
 		ret = ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keybits)), keybits);
 		if (ret == -1) {
-			printf("in_evdev: ioctl failed on %s\n", name);
+			err_perror("in_evdev: ioctl failed on %s", name);
 			goto skip;
 		}
 
@@ -565,7 +565,7 @@ void omapsdl_input_init(void)
 
 		osdl_evdev_devs[osdl_evdev_dev_count++] = fd;
 		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
-		printf("in_evdev: found \"%s\" with %d events (type %08x)\n",
+		log("in_evdev: found \"%s\" with %d events (type %08x)",
 			name, count, support);
 		continue;
 
@@ -573,7 +573,7 @@ skip:
 		close(fd);
 	}
 
-	printf("found %d evdev device(s).\n", osdl_evdev_dev_count);
+	log("found %d evdev device(s).", osdl_evdev_dev_count);
 }
 
 void omapsdl_input_finish(void)
@@ -624,7 +624,7 @@ int omapsdl_input_get_events(int timeout_ms,
 		ret = select(fdmax + 1, &fdset, NULL, NULL, timeout);
 		if (ret == -1)
 		{
-			perror("in_evdev: select failed");
+			err_perror("in_evdev: select failed");
 			return -1;
 		}
 		else if (ret == 0)
@@ -655,7 +655,7 @@ int omapsdl_input_get_events(int timeout_ms,
 				ret = read(fd, &ev, sizeof(ev));
 				if (ret < (int)sizeof(ev)) {
 					if (errno != EAGAIN) {
-						perror("in_evdev: read failed");
+						err_perror("in_evdev: read failed");
 						return -1;
 					}
 					break;
