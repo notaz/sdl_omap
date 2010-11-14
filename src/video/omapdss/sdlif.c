@@ -10,15 +10,8 @@
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
 #include "../../events/SDL_events_c.h"
-#include "linux/fbdev.h"
-#include "linux/oshide.h"
 #include "omapsdl.h"
 
-
-struct SDL_PrivateVideoData {
-	struct vout_fbdev *fbdev;
-//	void *fbmem;
-};
 
 static int omap_available(void) 
 {
@@ -49,12 +42,7 @@ static void omap_VideoQuit(SDL_VideoDevice *this)
 {
 	trace();
 
-	if (this->hidden->fbdev != NULL) {
-		vout_fbdev_finish(this->hidden->fbdev);
-		this->hidden->fbdev = NULL;
-
-		oshide_finish();
-	}
+	osdl_video_finish(this->hidden);
 	this->screen->pixels = NULL;
 	omapsdl_input_finish();
 }
@@ -98,17 +86,8 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 {
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
 
-	if (this->hidden->fbdev == NULL) {
-		this->hidden->fbdev = vout_fbdev_init("/dev/fb0", &width, &height, 0);
-		if (this->hidden->fbdev == NULL)
-			return NULL;
-
-		oshide_init();
-	}
-	else {
-		if (vout_fbdev_resize(this->hidden->fbdev, width, height, 0, 0, 0, 0, 0) < 0)
-			return NULL;
-	}
+	if (osdl_video_set_mode(this->hidden, width, height, bpp) < 0)
+		return NULL;
 
 	if (!SDL_ReallocFormat(current, 16, 0xf800, 0x07e0, 0x001f, 0))
 		return NULL;
@@ -118,17 +97,9 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	current->h = height;
 	current->pitch = SDL_CalculatePitch(current);
 
-	current->pixels = vout_fbdev_flip(this->hidden->fbdev);
+	current->pixels = osdl_video_flip(this->hidden);
 
 	return current;
-}
-
-static void *flip_it(struct vout_fbdev *fbdev)
-{
-	if (gcfg_force_vsync)
-		vout_fbdev_wait_vsync(fbdev);
-
-	return vout_fbdev_flip(fbdev);
 }
 
 static int omap_LockHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
@@ -147,7 +118,7 @@ static int omap_FlipHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
 {
 	trace("%p", surface);
 
-	surface->pixels = flip_it(this->hidden->fbdev);
+	surface->pixels = osdl_video_flip(this->hidden);
 
 	return 0;
 }
@@ -171,8 +142,7 @@ static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 		}
 	}
 
-	if (this->hidden->fbdev)
-		this->screen->pixels = flip_it(this->hidden->fbdev);
+	this->screen->pixels = osdl_video_flip(this->hidden);
 }
 
 static void omap_InitOSKeymap(SDL_VideoDevice *this)

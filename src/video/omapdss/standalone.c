@@ -12,9 +12,8 @@
 #include <SDL/SDL.h>
 
 #include "omapsdl.h"
-#include "linux/fbdev.h"
-#include "linux/oshide.h"
 
+static struct SDL_PrivateVideoData state;
 static SDL_Surface *g_screen;
 static void *g_screen_fbp;
 static Uint16 g_8bpp_pal[256];
@@ -57,7 +56,6 @@ SDL_Init(Uint32 flags)
 
 	if (g_start_ticks == 0) {
 		omapsdl_input_init();
-		oshide_init();
 		omapsdl_config();
 	}
 
@@ -72,10 +70,7 @@ SDL_Quit(void)
 {
 	trace("");
 
-	if (g_start_ticks != 0) {
-		oshide_finish();
-		g_start_ticks = 0;
-	}
+	osdl_video_finish(&state);
 }
 
 DECLSPEC int SDLCALL
@@ -109,7 +104,7 @@ SDL_GetTicks(void)
 DECLSPEC SDL_Surface * SDLCALL
 SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
 {
-	struct vout_fbdev *fbdev;
+	int ret;
 
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
 
@@ -127,11 +122,11 @@ SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
 	if (g_screen == NULL)
 		return NULL;
 
-	fbdev = vout_fbdev_init("/dev/fb0", &width, &height, 0);
-	if (fbdev == NULL)
+	ret = osdl_video_set_mode(&state, width, height, 16);
+	if (ret < 0)
 		goto fail_fbdev_init;
 
-	g_screen_fbp = vout_fbdev_flip(fbdev);
+	g_screen_fbp = osdl_video_flip(&state);
 	if (bpp == 16)
 		g_screen->pixels = g_screen_fbp;
 	else
@@ -142,13 +137,12 @@ SDL_SetVideoMode(int width, int height, int bpp, Uint32 flags)
 		err("fb NULL");
 		goto fail_pixels;
 	}
-	g_screen->hwdata = (void *)fbdev;
 
 	dbg("returning %p", g_screen);
 	return g_screen;
 
 fail_pixels:
-	vout_fbdev_finish(fbdev);
+	osdl_video_finish(&state);
 fail_fbdev_init:
 	free(g_screen);
 	g_screen = NULL;
@@ -158,8 +152,6 @@ fail_fbdev_init:
 DECLSPEC int SDLCALL
 SDL_Flip(SDL_Surface *screen)
 {
-	struct vout_fbdev *fbdev;
-
 	trace("%p", screen);
 
 	if (screen != g_screen) {
@@ -181,8 +173,7 @@ SDL_Flip(SDL_Surface *screen)
 #endif
 	}
 
-	fbdev = (void *)screen->hwdata;
-	g_screen_fbp = vout_fbdev_flip(fbdev);
+	g_screen_fbp = osdl_video_flip(&state);
 
 	if (screen->format->BitsPerPixel != 8)
 		screen->pixels = g_screen_fbp;

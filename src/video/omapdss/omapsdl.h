@@ -1,3 +1,9 @@
+/*
+ * (C) Gražvydas "notaz" Ignotas, 2010
+ *
+ * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
+ * See the COPYING file in the top-level directory.
+ */
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
@@ -11,6 +17,16 @@
 #define dbg(...)
 #endif
 
+struct SDL_PrivateVideoData {
+	struct vout_fbdev *fbdev;
+	void *saved_layer;
+	unsigned int oshide_done:1;
+};
+
+int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int height, int bpp);
+void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
+void  osdl_video_finish(struct SDL_PrivateVideoData *pdata);
+
 void omapsdl_input_init(void);
 void omapsdl_input_bind(const char *kname, const char *sdlname);
 int  omapsdl_input_get_events(int timeout_ms,
@@ -20,6 +36,7 @@ int  omapsdl_input_get_events(int timeout_ms,
 void omapsdl_input_finish(void);
 
 void omapsdl_config(void);
+void omapsdl_config_from_env(void);
 
 /* functions for standalone */
 void do_clut(void *dest, void *src, unsigned short *pal, int count);

@@ -8,9 +8,10 @@ endif
 ARCH ?= arm
 
 TARGET = libSDL-1.2.so.0
-OBJS += standalone.o osdl_input.o config.o \
+OBJS += standalone.o osdl_input.o osdl_video.o config.o \
 	linux/fbdev.o linux/oshide.o
 ifeq ($(ARCH),arm)
+LDFLAGS += -lts
 OBJS += arm_utils.o
 else
 CFLAGS += -fPIC

@@ -96,4 +96,12 @@ bad:
 	fclose(f);
 }
 
+void omapsdl_config_from_env(void)
+{
+	const char *tmp;
+
+	tmp = getenv("SDL_OMAP_VSYNC");
+	if (tmp != NULL)
+		gcfg_force_vsync = atoi(tmp);
+}
 

@@ -1617,6 +1617,7 @@ AC_HELP_STRING([--enable-video-omapdss], [use OMAP DSS2 video driver [[default=y
         AC_DEFINE(SDL_VIDEO_DRIVER_OMAPDSS)
         SOURCES="$SOURCES $srcdir/src/video/omapdss/sdlif.c"
         SOURCES="$SOURCES $srcdir/src/video/omapdss/osdl_input.c"
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/osdl_video.c"
         SOURCES="$SOURCES $srcdir/src/video/omapdss/config.c"
         SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/fbdev.c"
         SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/oshide.c"
