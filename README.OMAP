@@ -1,0 +1,61 @@
+(some) OMAP hardware support for SDL
+by notaz (notasas@gmail.com)
+
+
+About
+-----
+
+This is a quick SDL driver to make use of some OMAP features, namely double
+buffering and hardware scaler.
+
+The backstory of this is that SDL on Pandora console was suffering from tearing
+and stuttering problems because SDL default x11 driver doesn't work that well
+there. Almost 6 months have passed after pandora's release, no improved
+SDL versions appeared (not blaming anyone here, pandora's availability was low
+and there where were several SDL improvement in the works though). This
+encouraged me to create this quick version until something better appears
+(if ever).
+
+Although this was created for pandora, there is nothing preventing this to work
+on other OMAP platforms as well (well, nothing intentional at least).
+
+
+Usage / environment
+-------------------
+
+To enable this driver, SDL_VIDEODRIVER environment variable must be set to
+"omapdss". It can be set by calling setenv() in the code, but it's better to
+just set it in launcher script so that it can be changed easily without
+recompiling as needed:
+---
+#!/bin/sh
+export SDL_VIDEODRIVER=omapdss
+./your_program_here
+---
+
+Other environment variables:
+SDL_OMAP_LAYER_SIZE:
+  Output layer size. Regardless what you set with SDL_SetVideoMode(), output
+  will be scaled to this size using hardware. Valid values:
+    "WxH", for example "640x480"
+    "fullscreen" for to cover whole screen.
+SDL_OMAP_VSYNC:
+  Enables waiting for vertical sync on SDL_Flit() calls.
+  Set to "1" to enable, "0" to disable.
+
+
+Config file
+-----------
+
+Optionally a file named "omapsdl.cfg" can be created in the game's working
+directory. It has lower priority than environment variables, and has these
+options (only when omapdss driver is active):
+
+# same as SDL_OMAP_VSYNC
+force_vsync = 1/0
+
+# can be used to bind a key to SDL keysym, good for quick ports.
+# Example:
+# bind ev_home = sdlk_space
+bind ev_<evdev_key> = <sdl_key>
+
