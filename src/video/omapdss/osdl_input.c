@@ -636,9 +636,7 @@ int omapsdl_input_get_events(int timeout_ms,
 
 			fd = osdl_evdev_devs[i];
 #if SDL_INPUT_TSLIB
-			if (fd == osdl_tslib_fd) {
-				if (ts_cb == NULL)
-					continue;
+			if (fd == osdl_tslib_fd && ts_cb != NULL) {
 				while (1) {
 					struct ts_sample tss;
 					ret = ts_read(osdl_tslib_dev, &tss, 1);
@@ -650,7 +648,9 @@ int omapsdl_input_get_events(int timeout_ms,
 				}
 				continue;
 			}
+			/* else read below will consume the event, even if it's from ts */
 #endif
+
 			while (1) {
 				ret = read(fd, &ev, sizeof(ev));
 				if (ret < (int)sizeof(ev)) {
