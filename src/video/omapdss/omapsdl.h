@@ -28,11 +28,13 @@
 struct SDL_PrivateVideoData {
 	struct vout_fbdev *fbdev;
 	void *saved_layer;
+	int screen_w, screen_h;
 	unsigned int oshide_done:1;
 };
 
 int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int height, int bpp);
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
+int   osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata);
 void  osdl_video_finish(struct SDL_PrivateVideoData *pdata);
 
 void omapsdl_input_init(void);

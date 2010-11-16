@@ -27,6 +27,15 @@ struct omapfb_saved_layer {
 	struct omapfb_mem_info mi;
 };
 
+static const char *get_fb_device(void)
+{
+	const char *fbname = getenv("SDL_FBDEV");
+	if (fbname == NULL)
+		fbname = "/dev/fb1";
+
+	return fbname;
+}
+
 static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, int mem)
 {
 	struct omapfb_plane_info pi;
@@ -100,52 +109,26 @@ static int read_sysfs(const char *fname, char *buff, size_t size)
 	return 0;
 }
 
-static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
-		const char *fbname, int width, int height, int bpp)
+int osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata)
 {
-	int x = 0, y = 0, w = width, h = height; /* layer size and pos */
-	int screen_w = w, screen_h = h;
 	int fb_id, overlay_id = -1, screen_id = -1;
+	struct fb_var_screeninfo fbvar;
 	char buff[64], screen_name[64];
+	const char *fbname;
 	struct stat status;
-	const char *tmp;
-	int i, ret, fd;
+	int fd, i, ret;
+	int w, h;
 	FILE *f;
 
-	fd = open(fbname, O_RDWR);
-	if (fd == -1) {
-		err_perror("open %s", fbname);
-		return -1;
-	}
+	fbname = get_fb_device();
 
-	/* FIXME: assuming layer doesn't change here */
-	if (pdata->saved_layer == NULL) {
-		struct omapfb_saved_layer *slayer;
-		slayer = calloc(1, sizeof(*slayer));
-		if (slayer == NULL)
-			return -1;
-
-		ret = ioctl(fd, OMAPFB_QUERY_PLANE, &slayer->pi);
-		if (ret != 0) {
-			err_perror("QUERY_PLANE");
-			return -1;
-		}
-
-		ret = ioctl(fd, OMAPFB_QUERY_MEM, &slayer->mi);
-		if (ret != 0) {
-			err_perror("QUERY_MEM");
-			return -1;
-		}
-
-		pdata->saved_layer = slayer;
-	}
-
-	/* Figure out screen resolution, we will want to center if scaling is not enabled.
+	/* Figure out screen resolution, we need to know default resolution
+	 * to report to SDL and for centering stuff.
 	 * The only way to achieve this seems to be walking some sysfs files.. */
 	ret = stat(fbname, &status);
 	if (ret != 0) {
 		err_perror("can't stat %s", fbname);
-		return -1;
+		goto skip_screen;
 	}
 	fb_id = minor(status.st_rdev);
 
@@ -194,7 +177,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 		goto skip_screen;
 	}
 
-	ret = fscanf(f, "%*d,%d/%*d/%*d/%*d,%d/%*d/%*d/%*d", &screen_w, &screen_h);
+	ret = fscanf(f, "%*d,%d/%*d/%*d/%*d,%d/%*d/%*d/%*d", &w, &h);
 	fclose(f);
 	if (ret != 2) {
 		err("can't parse %s (%d), skip screen detection", buff, ret);
@@ -202,9 +185,78 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	}
 
 	log("detected %dx%d '%s' (%d) screen attached to fb %d and overlay %d",
-		screen_w, screen_h, screen_name, screen_id, fb_id, overlay_id);
+		w, h, screen_name, screen_id, fb_id, overlay_id);
+
+	pdata->screen_w = w;
+	pdata->screen_h = h;
+	return 0;
 
 skip_screen:
+	/* attempt to extract this from FB then */
+	fd = open(fbname, O_RDWR);
+	if (fd == -1) {
+		err_perror("open %s", fbname);
+		return -1;
+	}
+
+	ret = ioctl(fd, FBIOGET_VSCREENINFO, &fbvar);
+	close(fd);
+	if (ret == -1) {
+		err_perror("ioctl %s", fbname);
+		return -1;
+	}
+
+	if (fbvar.xres == 0 || fbvar.yres == 0) {
+		err("VSCREENINFO has nothing meaningful");
+		return -1;
+	}
+
+	pdata->screen_w = fbvar.xres;
+	pdata->screen_h = fbvar.yres;
+	return 0;
+}
+
+static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
+		const char *fbname, int width, int height, int bpp)
+{
+	int x = 0, y = 0, w = width, h = height; /* layer size and pos */
+	int screen_w = w, screen_h = h;
+	const char *tmp;
+	int ret, fd;
+
+	if (pdata->screen_w != 0)
+		screen_w = pdata->screen_w;
+	if (pdata->screen_h != 0)
+		screen_h = pdata->screen_h;
+
+	fd = open(fbname, O_RDWR);
+	if (fd == -1) {
+		err_perror("open %s", fbname);
+		return -1;
+	}
+
+	/* FIXME: assuming layer doesn't change here */
+	if (pdata->saved_layer == NULL) {
+		struct omapfb_saved_layer *slayer;
+		slayer = calloc(1, sizeof(*slayer));
+		if (slayer == NULL)
+			return -1;
+
+		ret = ioctl(fd, OMAPFB_QUERY_PLANE, &slayer->pi);
+		if (ret != 0) {
+			err_perror("QUERY_PLANE");
+			return -1;
+		}
+
+		ret = ioctl(fd, OMAPFB_QUERY_MEM, &slayer->mi);
+		if (ret != 0) {
+			err_perror("QUERY_MEM");
+			return -1;
+		}
+
+		pdata->saved_layer = slayer;
+	}
+
 	tmp = getenv("SDL_OMAP_LAYER_SIZE");
 	if (tmp != NULL) {
 		int w_, h_;
@@ -232,9 +284,7 @@ int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int heigh
 
 	bpp = 16; // FIXME
 
-	fbname = getenv("SDL_FBDEV");
-	if (fbname == NULL)
-		fbname = "/dev/fb1";
+	fbname = get_fb_device();
 
 	if (pdata->fbdev != NULL) {
 		vout_fbdev_finish(pdata->fbdev);
@@ -274,10 +324,7 @@ void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 {
 	static const char *fbname;
 
-	fbname = getenv("SDL_FBDEV");
-	if (fbname == NULL)
-		fbname = "/dev/fb1";
-
+	fbname = get_fb_device();
 	if (pdata->fbdev != NULL) {
 		vout_fbdev_finish(pdata->fbdev);
 		pdata->fbdev = NULL;

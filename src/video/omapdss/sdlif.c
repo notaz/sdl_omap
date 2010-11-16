@@ -5,6 +5,7 @@
  * See the COPYING file in the top-level directory.
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "../SDL_sysvideo.h"
@@ -27,6 +28,9 @@ static void omap_free(SDL_VideoDevice *device)
 
 static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 {
+	const char *tmp;
+	int w, h, ret;
+
 	trace();
 
 	// default to 16bpp
@@ -34,6 +38,18 @@ static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 
 	omapsdl_input_init();
 	omapsdl_config();
+
+	tmp = getenv("SDL_OMAP_DEFAULT_MODE");
+	if (tmp != NULL && sscanf(tmp, "%dx%d", &w, &h) == 2) {
+		this->info.current_w = w;
+		this->info.current_h = h;
+	}
+	else if (osdl_video_detect_screen(this->hidden) == 0) {
+		this->info.current_w = this->hidden->screen_w;
+		this->info.current_h = this->hidden->screen_h;
+	}
+
+	this->info.hw_available = 1;
 
 	return 0;
 }
@@ -50,8 +66,7 @@ static void omap_VideoQuit(SDL_VideoDevice *this)
 static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format, Uint32 flags)
 {
 	static SDL_Rect omap_mode_list[] = {
-		// XXX: we are not really restricted to fixed modes
-		// FIXME: should really check the display for max supported
+		/* XXX: we are not really restricted to fixed modes */
 		{ 0, 0, 1600, 1200 },
 		{ 0, 0, 1408, 1056 },
 		{ 0, 0, 1280, 1024 },
@@ -69,15 +84,16 @@ static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format,
 		{ 0, 0,  320,  240 },
 		{ 0, 0,  320,  200 },
 	};
-	// broken API needs this
+	/* broken API needs this stupidity */
 	static SDL_Rect *omap_modes[] = {
-		&omap_mode_list[0],
-		&omap_mode_list[1],
-		&omap_mode_list[2],
-		&omap_mode_list[3],
-		&omap_mode_list[4],
-		&omap_mode_list[5],
-		&omap_mode_list[6],
+		&omap_mode_list[ 0], &omap_mode_list[ 1],
+		&omap_mode_list[ 2], &omap_mode_list[ 3],
+		&omap_mode_list[ 4], &omap_mode_list[ 5],
+		&omap_mode_list[ 6], &omap_mode_list[ 7],
+		&omap_mode_list[ 8], &omap_mode_list[ 9],
+		&omap_mode_list[10], &omap_mode_list[11],
+		&omap_mode_list[12], &omap_mode_list[13],
+		&omap_mode_list[14], &omap_mode_list[15],
 		NULL
 	};
 
