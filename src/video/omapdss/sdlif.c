@@ -52,13 +52,22 @@ static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format,
 	static SDL_Rect omap_mode_list[] = {
 		// XXX: we are not really restricted to fixed modes
 		// FIXME: should really check the display for max supported
-		{ 0, 0, 800, 480 },
-		{ 0, 0, 720, 480 },
-		{ 0, 0, 640, 480 },
-		{ 0, 0, 640, 400 },
-		{ 0, 0, 512, 384 },
-		{ 0, 0, 320, 240 },
-		{ 0, 0, 320, 200 },
+		{ 0, 0, 1600, 1200 },
+		{ 0, 0, 1408, 1056 },
+		{ 0, 0, 1280, 1024 },
+		{ 0, 0, 1152,  864 },
+		{ 0, 0, 1024,  768 },
+		{ 0, 0,  960,  720 },
+		{ 0, 0,  800,  600 },
+		{ 0, 0,  768,  576 },
+		{ 0, 0,  720,  576 },
+		{ 0, 0,  800,  480 },
+		{ 0, 0,  720,  480 },
+		{ 0, 0,  640,  480 },
+		{ 0, 0,  640,  400 },
+		{ 0, 0,  512,  384 },
+		{ 0, 0,  320,  240 },
+		{ 0, 0,  320,  200 },
 	};
 	// broken API needs this
 	static SDL_Rect *omap_modes[] = {
@@ -121,6 +130,18 @@ static int omap_FlipHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
 	surface->pixels = osdl_video_flip(this->hidden);
 
 	return 0;
+}
+
+/* we can't do hw surfaces (besides screen one) yet */
+static int omap_AllocHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
+{
+	trace("%p", surface);
+	return -1;
+}
+
+static void omap_FreeHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
+{
+	trace("%p", surface);
 }
 
 static int omap_SetColors(SDL_VideoDevice *this, int firstcolor, int ncolors, SDL_Color *colors)
@@ -194,6 +215,8 @@ static SDL_VideoDevice *omap_create(int devindex)
 	this->LockHWSurface = omap_LockHWSurface;
 	this->UnlockHWSurface = omap_UnlockHWSurface;
 	this->FlipHWSurface = omap_FlipHWSurface;
+	this->AllocHWSurface = omap_AllocHWSurface;
+	this->FreeHWSurface = omap_FreeHWSurface;
 	this->SetColors = omap_SetColors;
 	this->UpdateRects = omap_UpdateRects;
 	this->VideoQuit = omap_VideoQuit;
