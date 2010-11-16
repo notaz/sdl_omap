@@ -65,7 +65,7 @@ void omapsdl_config(void)
 		if (line == NULL)
 			break;
 		p = line = sskip(line);
-		if (*p == '#')
+		if (*p == 0 || *p == '#')
 			continue;
 
 		if (check_token(&p, "bind")) {
