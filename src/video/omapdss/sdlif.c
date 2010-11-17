@@ -49,6 +49,7 @@ static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 		this->info.current_h = this->hidden->screen_h;
 	}
 
+	this->handles_any_size = 1;
 	this->info.hw_available = 1;
 
 	return 0;
@@ -65,35 +66,14 @@ static void omap_VideoQuit(SDL_VideoDevice *this)
 
 static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format, Uint32 flags)
 {
-	static SDL_Rect omap_mode_list[] = {
-		/* XXX: we are not really restricted to fixed modes */
-		{ 0, 0, 1600, 1200 },
-		{ 0, 0, 1408, 1056 },
-		{ 0, 0, 1280, 1024 },
-		{ 0, 0, 1152,  864 },
-		{ 0, 0, 1024,  768 },
-		{ 0, 0,  960,  720 },
-		{ 0, 0,  800,  600 },
-		{ 0, 0,  768,  576 },
-		{ 0, 0,  720,  576 },
-		{ 0, 0,  800,  480 },
-		{ 0, 0,  720,  480 },
-		{ 0, 0,  640,  480 },
-		{ 0, 0,  640,  400 },
-		{ 0, 0,  512,  384 },
-		{ 0, 0,  320,  240 },
-		{ 0, 0,  320,  200 },
+	static SDL_Rect omap_mode_max = {
+		/* with handles_any_size, should accept anything up to this
+		 * XXX: possibly set this dynamically based on free vram? */
+		0, 0, 1600, 1200
 	};
 	/* broken API needs this stupidity */
 	static SDL_Rect *omap_modes[] = {
-		&omap_mode_list[ 0], &omap_mode_list[ 1],
-		&omap_mode_list[ 2], &omap_mode_list[ 3],
-		&omap_mode_list[ 4], &omap_mode_list[ 5],
-		&omap_mode_list[ 6], &omap_mode_list[ 7],
-		&omap_mode_list[ 8], &omap_mode_list[ 9],
-		&omap_mode_list[10], &omap_mode_list[11],
-		&omap_mode_list[12], &omap_mode_list[13],
-		&omap_mode_list[14], &omap_mode_list[15],
+		&omap_mode_max,
 		NULL
 	};
 

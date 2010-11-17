@@ -34,14 +34,20 @@ export SDL_VIDEODRIVER=omapdss
 ---
 
 Other environment variables:
+
 SDL_OMAP_LAYER_SIZE:
   Output layer size. Regardless what you set with SDL_SetVideoMode(), output
   will be scaled to this size using hardware. Valid values:
     "WxH", for example "640x480"
     "fullscreen" for to cover whole screen.
+
 SDL_OMAP_VSYNC:
-  Enables waiting for vertical sync on SDL_Flit() calls.
+  Enables waiting for vertical sync on SDL_Flip() calls.
   Set to "1" to enable, "0" to disable.
+
+SDL_OMAP_DEFAULT_MODE:
+  If the app doesn't specify resolution in SDL_SetVideoMode(), then use this.
+  Should be specified in "WxH" format, for example "640x480".
 
 
 Config file
