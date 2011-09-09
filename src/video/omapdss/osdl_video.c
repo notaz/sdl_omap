@@ -78,6 +78,7 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 	ret = ioctl(fd, OMAPFB_SETUP_PLANE, &pi);
 	if (ret != 0) {
 		err_perror("SETUP_PLANE");
+		err("(%d %d %d %d)\n", x, y, w, h);
 		return -1;
 	}
 

@@ -28,90 +28,50 @@ static int osdl_tslib_fd;
 static struct tsdev *osdl_tslib_dev;
 
 static short osdl_evdev_map[KEY_CNT] = {
-	[KEY_0]		= SDLK_0,
-	[KEY_1]		= SDLK_1,
-	[KEY_2]		= SDLK_2,
-	[KEY_3]		= SDLK_3,
-	[KEY_4]		= SDLK_4,
-	[KEY_5]		= SDLK_5,
-	[KEY_6]		= SDLK_6,
-	[KEY_7]		= SDLK_7,
-	[KEY_8]		= SDLK_8,
-	[KEY_9]		= SDLK_9,
-	[KEY_A]		= SDLK_a,
-	[KEY_B]		= SDLK_b,
-	[KEY_C]		= SDLK_c,
-	[KEY_D]		= SDLK_d,
-	[KEY_E]		= SDLK_e,
-	[KEY_F]		= SDLK_f,
-	[KEY_G]		= SDLK_g,
-	[KEY_H]		= SDLK_h,
-	[KEY_I]		= SDLK_i,
-	[KEY_J]		= SDLK_j,
-	[KEY_K]		= SDLK_k,
-	[KEY_L]		= SDLK_l,
-	[KEY_M]		= SDLK_m,
-	[KEY_N]		= SDLK_n,
-	[KEY_O]		= SDLK_o,
-	[KEY_P]		= SDLK_p,
-	[KEY_Q]		= SDLK_q,
-	[KEY_R]		= SDLK_r,
-	[KEY_S]		= SDLK_s,
-	[KEY_T]		= SDLK_t,
-	[KEY_U]		= SDLK_u,
-	[KEY_V]		= SDLK_v,
-	[KEY_W]		= SDLK_w,
-	[KEY_X]		= SDLK_x,
-	[KEY_Y]		= SDLK_y,
-	[KEY_Z]		= SDLK_z,
-	[KEY_SPACE]	= SDLK_SPACE,
-	[KEY_BACKSPACE]	= SDLK_BACKSPACE,
-	[KEY_FN]	= SDLK_MODE,
-	[KEY_DOT]	= SDLK_PERIOD,
-	[KEY_ENTER]	= SDLK_RETURN,
-	[KEY_LEFTSHIFT]	= SDLK_LSHIFT,
-	[KEY_COMMA]	= SDLK_COMMA,
-//	[KEY_BRIGHTNESSUP]	=
-//	[KEY_BRIGHTNESSDOWN]	=
-//	[KEY_GRAVE]	=
-	[KEY_TAB]	= SDLK_TAB,
-	[KEY_INSERT]	= SDLK_INSERT,
-	[KEY_EQUAL]	= SDLK_EQUALS,
-	[KEY_KPPLUS]	= SDLK_KP_PLUS,
-	[KEY_BACKSLASH]	= SDLK_BACKSLASH,
-	[KEY_RIGHTBRACE]= SDLK_RIGHTBRACKET,
-	[KEY_KPMINUS]	= SDLK_KP_MINUS,
-	[KEY_QUESTION]	= SDLK_QUESTION,
-	[KEY_LEFTBRACE]	= SDLK_LEFTBRACKET,
-	[KEY_SLASH]	= SDLK_SLASH,
-//	[KEY_YEN]	=
-	[KEY_APOSTROPHE]= SDLK_QUOTE,
-	[KEY_ESC]	= SDLK_ESCAPE,
-	[KEY_CAPSLOCK]	= SDLK_CAPSLOCK,
-	[KEY_SEMICOLON]	= SDLK_SEMICOLON,
-	[KEY_F1]	= SDLK_F1,
-	[KEY_F2]	= SDLK_F2,
-	[KEY_F3]	= SDLK_F3,
-	[KEY_F4]	= SDLK_F4,
-	[KEY_F5]	= SDLK_F5,
-	[KEY_F6]	= SDLK_F6,
-	[KEY_F7]	= SDLK_F7,
-	[KEY_F8]	= SDLK_F8,
-	[KEY_F9]	= SDLK_F9,
-	[KEY_F10]	= KEY_F10,
-	[KEY_F11]	= KEY_F11,
-	[KEY_F12]	= KEY_F12,
-	[KEY_F13]	= KEY_F13,	/* apostrophe, differs from Fn-A? */
-	[KEY_F14]	= KEY_F14,	/* pipe/bar */
-	[KEY_F15]	= KEY_F15,	/* dash */
-	[KEY_F16]	= SDLK_HASH,	/* # (pound/hash) */
-	[KEY_F17]	= SDLK_EXCLAIM,	/* ! */
-//	[KEY_F18]	=		/* £ (pound) */
-	[KEY_F19]	= SDLK_QUOTEDBL,/* " */
-	[KEY_F20]	= SDLK_AT,	/* @ */
-	[KEY_F21]	= SDLK_SEMICOLON,/* : */
-//	[KEY_F22]	=
-//	[KEY_F23]	=
+	/*       normal                              fn                      */
+	[KEY_0]         = SDLK_0,         [KEY_F10]       = SDLK_F10,
+	[KEY_1]         = SDLK_1,         [KEY_F1]        = SDLK_F1,
+	[KEY_2]         = SDLK_2,         [KEY_F2]        = SDLK_F2,
+	[KEY_3]         = SDLK_3,         [KEY_F3]        = SDLK_F3,
+	[KEY_4]         = SDLK_4,         [KEY_F4]        = SDLK_F4,
+	[KEY_5]         = SDLK_5,         [KEY_F5]        = SDLK_F5,
+	[KEY_6]         = SDLK_6,         [KEY_F6]        = SDLK_F6,
+	[KEY_7]         = SDLK_7,         [KEY_F7]        = SDLK_F7,
+	[KEY_8]         = SDLK_8,         [KEY_F8]        = SDLK_F8,
+	[KEY_9]         = SDLK_9,         [KEY_F9]        = SDLK_F9,
+	[KEY_A]         = SDLK_a,         [KEY_APOSTROPHE]= SDLK_QUOTE,     /* ' */
+	[KEY_B]         = SDLK_b,         [KEY_F14]       = 124,            /* | */
+	[KEY_C]         = SDLK_c,         [KEY_BACKSLASH] = SDLK_BACKSLASH, /* \ */
+	[KEY_D]         = SDLK_d,         [KEY_KPMINUS]   = SDLK_MINUS,
+	[KEY_E]         = SDLK_e,         [KEY_LEFTBRACE] = SDLK_LEFTPAREN,
+	[KEY_F]         = SDLK_f,         [KEY_KPPLUS]    = SDLK_PLUS,
+	[KEY_G]         = SDLK_g,         [KEY_EQUAL]     = SDLK_EQUALS,
+	[KEY_H]         = SDLK_h,         [KEY_GRAVE]     = SDLK_BACKQUOTE, /* ` */
+	[KEY_I]         = SDLK_i,      /* [KEY_BRIGHTNESSUP] */
+	[KEY_J]         = SDLK_j,      /* [KEY_F13] */                      /* ’ */
+	[KEY_K]         = SDLK_k,      /* [KEY_F18] */                      /* £ (pound) */
+	[KEY_L]         = SDLK_l,      /* [KEY_YEN] */
+	[KEY_M]         = SDLK_m,         [KEY_F23]       = SDLK_EURO,
+	[KEY_N]         = SDLK_n,         [KEY_F22]       = SDLK_DOLLAR,    /* $ */
+	[KEY_O]         = SDLK_o,         [KEY_F11]       = SDLK_F11,
+	[KEY_P]         = SDLK_p,         [KEY_F12]       = SDLK_F12,
+	[KEY_Q]         = SDLK_q,         [KEY_ESC]       = SDLK_ESCAPE,
+	[KEY_R]         = SDLK_r,         [KEY_RIGHTBRACE]= SDLK_RIGHTPAREN,
+	[KEY_S]         = SDLK_s,         [KEY_F19]       = SDLK_QUOTEDBL,  /* " */
+	[KEY_T]         = SDLK_t,         [KEY_F17]       = SDLK_EXCLAIM,   /* ! */
+	[KEY_U]         = SDLK_u,      /* [KEY_BRIGHTNESSDOWN] */
+	[KEY_V]         = SDLK_v,         [KEY_F16]       = SDLK_HASH,      /* # (pound/hash) */
+	[KEY_W]         = SDLK_w,         [KEY_F20]       = SDLK_AT,        /* @ */
+	[KEY_X]         = SDLK_x,         [KEY_QUESTION]  = SDLK_QUESTION,  /* ? */
+	[KEY_Y]         = SDLK_y,         [KEY_F15]       = SDLK_UNDERSCORE,/* _ */
+	[KEY_Z]         = SDLK_z,         [KEY_SLASH]     = SDLK_SLASH,     /* / */
+	[KEY_SPACE]     = SDLK_SPACE,     [KEY_TAB]       = SDLK_TAB,
+	[KEY_BACKSPACE] = SDLK_BACKSPACE, [KEY_INSERT]    = SDLK_INSERT,
+	[KEY_FN]        = SDLK_MODE,
+	[KEY_DOT]       = SDLK_PERIOD,    [KEY_F21]       = SDLK_COLON,     /* : */
+	[KEY_ENTER]     = SDLK_RETURN,
+	[KEY_LEFTSHIFT] = SDLK_LSHIFT,    [KEY_CAPSLOCK]  = SDLK_CAPSLOCK,
+	[KEY_COMMA]     = SDLK_COMMA,     [KEY_SEMICOLON] = SDLK_SEMICOLON, /* ; */
 
 	[KEY_UP]	= SDLK_UP,
 	[KEY_DOWN]	= SDLK_DOWN,
@@ -123,7 +83,7 @@ static short osdl_evdev_map[KEY_CNT] = {
 	[KEY_PAGEDOWN]	= SDLK_PAGEDOWN,
 	[KEY_LEFTALT]	= SDLK_LALT,
 	[KEY_LEFTCTRL]	= SDLK_LCTRL,
-//	[KEY_MENU]	=
+	[KEY_MENU]	= 147,		/* match default SDL here */
 	[KEY_RIGHTSHIFT]= SDLK_RSHIFT,
 	[KEY_RIGHTCTRL]	= SDLK_RCTRL,
 };
