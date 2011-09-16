@@ -62,11 +62,13 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 			err_perror("SETUP_PLANE");
 	}
 
-	mi.size = mem;
-	ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
-	if (ret != 0) {
-		err_perror("SETUP_MEM");
-		return -1;
+	if (mi.size < mem) {
+		mi.size = mem;
+		ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
+		if (ret != 0) {
+			err_perror("SETUP_MEM");
+			return -1;
+		}
 	}
 
 	pi.pos_x = x;
