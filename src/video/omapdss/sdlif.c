@@ -91,12 +91,28 @@ static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format,
 static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *current, int width,
 					int height, int bpp, Uint32 flags)
 {
+	SDL_PixelFormat *format;
+
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
 
-	if (osdl_video_set_mode(this->hidden, width, height, bpp) < 0)
+	switch (bpp) {
+	case 16:
+		format = SDL_ReallocFormat(current, 16, 0xf800, 0x07e0, 0x001f, 0);
+		break;
+	case 24:
+		format = SDL_ReallocFormat(current, 24, 0xff0000, 0xff00, 0xff, 0);
+		break;
+	case 32:
+		format = SDL_ReallocFormat(current, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
+		break;
+	default:
+		err("SetVideoMode: bpp %d not supported\n", bpp);
+		return NULL;
+	}
+	if (format == NULL)
 		return NULL;
 
-	if (!SDL_ReallocFormat(current, 16, 0xf800, 0x07e0, 0x001f, 0))
+	if (osdl_video_set_mode(this->hidden, width, height, bpp) < 0)
 		return NULL;
 
 	current->flags = SDL_FULLSCREEN | SDL_DOUBLEBUF | SDL_HWSURFACE;
