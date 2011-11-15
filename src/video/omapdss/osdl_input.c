@@ -48,9 +48,9 @@ static short osdl_evdev_map[KEY_CNT] = {
 	[KEY_G]         = SDLK_g,         [KEY_EQUAL]     = SDLK_EQUALS,
 	[KEY_H]         = SDLK_h,         [KEY_GRAVE]     = SDLK_BACKQUOTE, /* ` */
 	[KEY_I]         = SDLK_i,      /* [KEY_BRIGHTNESSUP] */
-	[KEY_J]         = SDLK_j,      /* [KEY_F13] */                      /* ’ */
-	[KEY_K]         = SDLK_k,      /* [KEY_F18] */                      /* £ (pound) */
-	[KEY_L]         = SDLK_l,      /* [KEY_YEN] */
+	[KEY_J]         = SDLK_j,         [KEY_F13]       = SDLK_WORLD_4,   /* ’ (not on def SDL) */
+	[KEY_K]         = SDLK_k,         [KEY_F18]       = SDLK_WORLD_3,   /* £ (pound) */
+	[KEY_L]         = SDLK_l,         [KEY_YEN]       = SDLK_WORLD_5,
 	[KEY_M]         = SDLK_m,         [KEY_F23]       = SDLK_EURO,
 	[KEY_N]         = SDLK_n,         [KEY_F22]       = SDLK_DOLLAR,    /* $ */
 	[KEY_O]         = SDLK_o,         [KEY_F11]       = SDLK_F11,
