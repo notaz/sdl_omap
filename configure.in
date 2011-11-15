@@ -1620,7 +1620,7 @@ AC_HELP_STRING([--enable-video-omapdss], [use OMAP DSS2 video driver [[default=y
         SOURCES="$SOURCES $srcdir/src/video/omapdss/osdl_video.c"
         SOURCES="$SOURCES $srcdir/src/video/omapdss/config.c"
         SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/fbdev.c"
-        SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/oshide.c"
+        SOURCES="$SOURCES $srcdir/src/video/omapdss/linux/xenv.c"
         have_video=yes
     fi
 }

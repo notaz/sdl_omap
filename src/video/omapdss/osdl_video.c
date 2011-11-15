@@ -1,5 +1,5 @@
 /*
- * (C) Gražvydas "notaz" Ignotas, 2010
+ * (C) Gražvydas "notaz" Ignotas, 2010-2011
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
@@ -20,7 +20,7 @@
 #include "omapsdl.h"
 #include "omapfb.h"
 #include "linux/fbdev.h"
-#include "linux/oshide.h"
+#include "linux/xenv.h"
 
 struct omapfb_saved_layer {
 	struct omapfb_plane_info pi;
@@ -274,7 +274,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
-	ret = osdl_setup_omapfb(fd, 1, x, y, w, h, width * height * ((bpp + 7) / 8) * 3);
+	ret = osdl_setup_omapfb(fd, 1, x, y, w, h, width * height * ((bpp + 7) / 8) * 2);
 	close(fd);
 
 	return ret;
@@ -284,8 +284,6 @@ int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int heigh
 {
 	const char *fbname;
 	int ret;
-
-	bpp = 16; // FIXME
 
 	fbname = get_fb_device();
 
@@ -300,13 +298,14 @@ int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int heigh
 	if (ret < 0)
 		return -1;
 
-	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, 0);
+	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, bpp, 2);
 	if (pdata->fbdev == NULL)
 		return -1;
 
-	if (!pdata->oshide_done) {
-		oshide_init();
-		pdata->oshide_done = 1;
+	if (!pdata->xenv_up) {
+		ret = xenv_init();
+		if (ret == 0)
+			pdata->xenv_up = 1;
 	}
 
 	return 0;
@@ -356,9 +355,9 @@ void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 		pdata->saved_layer = NULL;
 	}
 
-	if (pdata->oshide_done) {
-		oshide_finish();
-		pdata->oshide_done = 0;
+	if (pdata->xenv_up) {
+		xenv_finish();
+		pdata->xenv_up = 0;
 	}
 }
 

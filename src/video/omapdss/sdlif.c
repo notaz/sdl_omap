@@ -11,6 +11,8 @@
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
 #include "../../events/SDL_events_c.h"
+
+#include "linux/xenv.h"
 #include "omapsdl.h"
 
 
@@ -190,9 +192,16 @@ static int ts_event_cb(void *cb_arg, int x, int y, unsigned int pressure)
 
 static void omap_PumpEvents(SDL_VideoDevice *this) 
 {
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+	int dummy;
+
 	trace();
 
 	omapsdl_input_get_events(0, key_event_cb, ts_event_cb, NULL);
+
+	// XXX: we might want to process some X events too
+	if (pdata->xenv_up)
+		xenv_update(&dummy);
 }
 
 static SDL_VideoDevice *omap_create(int devindex)

@@ -29,7 +29,7 @@ struct SDL_PrivateVideoData {
 	struct vout_fbdev *fbdev;
 	void *saved_layer;
 	int screen_w, screen_h;
-	unsigned int oshide_done:1;
+	unsigned int xenv_up:1;
 };
 
 int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int height, int bpp);
