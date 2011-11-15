@@ -2641,6 +2641,34 @@ static void BlitNtoNSurfaceAlphaKey(SDL_BlitInfo *info)
 	unsigned sA = srcfmt->alpha;
 	unsigned dA = dstfmt->Amask ? SDL_ALPHA_OPAQUE : 0;
 
+	if (srcbpp == 2 && srcfmt->Gmask == 0x7e0 && dstbpp == 2 && dstfmt->Gmask == 0x7e0) {
+	    Uint16 *src16 = (Uint16 *)src;
+	    Uint16 *dst16 = (Uint16 *)dst;
+	    sA >>= 3;	/* downscale alpha to 5 bits */
+	    while ( height-- ) {
+		DUFFS_LOOP4(
+		{
+		    Uint32 s;
+		    Uint32 d;
+		    s = *src16;
+		    if(sA && s != ckey) {
+			d = *dst16;
+			s = (s | s << 16) & 0x07e0f81f;
+			d = (d | d << 16) & 0x07e0f81f;
+			d += (s - d) * sA >> 5;
+			d &= 0x07e0f81f;
+			*dst16 = (Uint16)(d | d >> 16);
+		    }
+		    src16++;
+		    dst16++;
+		},
+		width);
+		src16 += srcskip / 2;
+		dst16 += dstskip / 2;
+	    }
+	    return;
+	}
+
 	while ( height-- ) {
 	    DUFFS_LOOP4(
 	    {
