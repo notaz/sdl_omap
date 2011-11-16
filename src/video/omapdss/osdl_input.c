@@ -14,7 +14,11 @@
 #include <time.h>
 #include <errno.h>
 #include <linux/input.h>
+#ifdef STANDALONE
 #include <SDL/SDL.h>
+#else
+#include "SDL.h"
+#endif
 #if SDL_INPUT_TSLIB
 #include <tslib.h>
 #endif
