@@ -224,6 +224,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 {
 	int x = 0, y = 0, w = width, h = height; /* layer size and pos */
 	int screen_w = w, screen_h = h;
+	int tmp_w, tmp_h;
 	const char *tmp;
 	int ret, fd;
 
@@ -262,14 +263,23 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	tmp = getenv("SDL_OMAP_LAYER_SIZE");
 	if (tmp != NULL) {
-		int w_, h_;
 		if (strcasecmp(tmp, "fullscreen") == 0)
 			w = screen_w, h = screen_h;
-		else if (sscanf(tmp, "%dx%d", &w_, &h_) == 2)
-			w = w_, h = h_;
+		else if (sscanf(tmp, "%dx%d", &tmp_w, &tmp_h) == 2)
+			w = tmp_w, h = tmp_h;
 		else
 			err("layer size specified incorrectly, "
 				"should be like 800x480");
+	}
+	else {
+		/* the layer can't be set larger than screen */
+		tmp_w = w, tmp_h = h;
+		if (w > screen_w)
+			w = screen_w;
+		if (h > screen_h)
+			h = screen_h;
+		if (w != tmp_w || h != tmp_h)
+			log("layer resized %dx%d -> %dx%d to fit screen", tmp_w, tmp_h, w, h);
 	}
 
 	x = screen_w / 2 - w / 2;
