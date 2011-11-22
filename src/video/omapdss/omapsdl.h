@@ -1,5 +1,5 @@
 /*
- * (C) Gražvydas "notaz" Ignotas, 2010
+ * (C) Gražvydas "notaz" Ignotas, 2010, 2011
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
@@ -32,7 +32,8 @@ struct SDL_PrivateVideoData {
 	unsigned int xenv_up:1;
 };
 
-int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int height, int bpp);
+int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
+			  int width, int height, int bpp, int doublebuf);
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata);
 void  osdl_video_finish(struct SDL_PrivateVideoData *pdata);
@@ -53,3 +54,4 @@ void do_clut(void *dest, void *src, unsigned short *pal, int count);
 
 /* config */
 extern int gcfg_force_vsync;
+extern int gcfg_force_doublebuf;

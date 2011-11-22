@@ -92,8 +92,12 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 					int height, int bpp, Uint32 flags)
 {
 	SDL_PixelFormat *format;
+	Uint32 unhandled_flags;
+	int ret;
 
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
+
+	omapsdl_config_from_env();
 
 	switch (bpp) {
 	case 16:
@@ -106,16 +110,30 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		format = SDL_ReallocFormat(current, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
 		break;
 	default:
-		err("SetVideoMode: bpp %d not supported\n", bpp);
+		err("SetVideoMode: bpp %d not supported", bpp);
 		return NULL;
 	}
 	if (format == NULL)
 		return NULL;
 
-	if (osdl_video_set_mode(this->hidden, width, height, bpp) < 0)
+	if (!(flags & SDL_DOUBLEBUF) && gcfg_force_doublebuf) {
+		log("forcing SDL_DOUBLEBUF");
+		flags |= SDL_DOUBLEBUF;
+	}
+
+	ret = osdl_video_set_mode(this->hidden, width, height, bpp,
+		(flags & SDL_DOUBLEBUF) ? 1 : 0);
+	if (ret < 0)
 		return NULL;
 
-	current->flags = SDL_FULLSCREEN | SDL_DOUBLEBUF | SDL_HWSURFACE;
+	flags |= SDL_FULLSCREEN | SDL_HWSURFACE;
+	unhandled_flags = flags & ~(SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
+	if (unhandled_flags != 0) {
+		log("dropping unhandled flags: %08x", unhandled_flags);
+		flags &= ~unhandled_flags;
+	}
+
+	current->flags = flags;
 	current->w = width;
 	current->h = height;
 	current->pitch = SDL_CalculatePitch(current);
@@ -168,16 +186,13 @@ static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 {
 	trace("%d, %p", nrects, rects);
 
-	if (nrects != 1 || rects->x != 0 || rects->y != 0 ||
-			rects->w != this->screen->w || rects->h != this->screen->h) {
-		static int warned = 0;
-		if (!warned) {
-			not_supported();
-			warned = 1;
-		}
+	/* hmh.. */
+	if (nrects == 1 && rects->x == 0 && rects->y == 0 &&
+	    (this->screen->flags & SDL_DOUBLEBUF) &&
+	    rects->w == this->screen->w && rects->h == this->screen->h)
+	{
+		this->screen->pixels = osdl_video_flip(this->hidden);
 	}
-
-	this->screen->pixels = osdl_video_flip(this->hidden);
 }
 
 static void omap_InitOSKeymap(SDL_VideoDevice *this)

@@ -280,7 +280,8 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	return ret;
 }
 
-int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int height, int bpp)
+int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
+			int width, int height, int bpp, int doublebuf)
 {
 	const char *fbname;
 	int ret;
@@ -292,13 +293,11 @@ int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata, int width, int heigh
 		pdata->fbdev = NULL;
 	}
 
-	omapsdl_config_from_env();
-
 	ret = osdl_setup_omap_layer(pdata, fbname, width, height, bpp);
 	if (ret < 0)
 		return -1;
 
-	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, bpp, 2);
+	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, bpp, doublebuf ? 2 : 1);
 	if (pdata->fbdev == NULL)
 		return -1;
 

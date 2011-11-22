@@ -14,6 +14,7 @@
 #include "omapsdl.h"
 
 int gcfg_force_vsync;
+int gcfg_force_doublebuf;
 
 static char *sskip(char *p)
 {
@@ -89,6 +90,10 @@ void omapsdl_config(void)
 			gcfg_force_vsync = strtol(p, NULL, 0);
 			continue;
 		}
+		else if (check_token_eq(&p, "force_doublebuf")) {
+			gcfg_force_doublebuf = strtol(p, NULL, 0);
+			continue;
+		}
 
 bad:
 		err("config: failed to parse: %s", line);
@@ -102,6 +107,9 @@ void omapsdl_config_from_env(void)
 
 	tmp = getenv("SDL_OMAP_VSYNC");
 	if (tmp != NULL)
-		gcfg_force_vsync = atoi(tmp);
+		gcfg_force_vsync = strtol(tmp, NULL, 0);
+	tmp = getenv("SDL_OMAP_FORCE_DOUBLEBUF");
+	if (tmp != NULL)
+		gcfg_force_doublebuf = strtol(tmp, NULL, 0);
 }
 
