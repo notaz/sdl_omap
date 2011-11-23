@@ -39,7 +39,7 @@ static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 	vformat->BitsPerPixel = 16;
 
 	omapsdl_input_init();
-	omapsdl_config();
+	omapsdl_config(this->hidden);
 
 	tmp = getenv("SDL_OMAP_DEFAULT_MODE");
 	if (tmp != NULL && sscanf(tmp, "%dx%d", &w, &h) == 2) {
@@ -47,8 +47,8 @@ static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 		this->info.current_h = h;
 	}
 	else if (osdl_video_detect_screen(this->hidden) == 0) {
-		this->info.current_w = this->hidden->screen_w;
-		this->info.current_h = this->hidden->screen_h;
+		this->info.current_w = this->hidden->phys_w;
+		this->info.current_h = this->hidden->phys_h;
 	}
 
 	this->handles_any_size = 1;
@@ -91,13 +91,14 @@ static SDL_Rect **omap_ListModes(SDL_VideoDevice *this, SDL_PixelFormat *format,
 static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *current, int width,
 					int height, int bpp, Uint32 flags)
 {
+	struct SDL_PrivateVideoData *pdata = this->hidden;
 	SDL_PixelFormat *format;
 	Uint32 unhandled_flags;
 	int ret;
 
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
 
-	omapsdl_config_from_env();
+	omapsdl_config_from_env(pdata);
 
 	switch (bpp) {
 	case 16:
@@ -116,12 +117,12 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	if (format == NULL)
 		return NULL;
 
-	if (!(flags & SDL_DOUBLEBUF) && gcfg_force_doublebuf) {
+	if (!(flags & SDL_DOUBLEBUF) && pdata->cfg_force_doublebuf) {
 		log("forcing SDL_DOUBLEBUF");
 		flags |= SDL_DOUBLEBUF;
 	}
 
-	ret = osdl_video_set_mode(this->hidden, width, height, bpp,
+	ret = osdl_video_set_mode(pdata, width, height, bpp,
 		(flags & SDL_DOUBLEBUF) ? 1 : 0);
 	if (ret < 0)
 		return NULL;
@@ -138,7 +139,12 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	current->h = height;
 	current->pitch = SDL_CalculatePitch(current);
 
-	current->pixels = osdl_video_flip(this->hidden);
+	if (pdata->layer_w != 0 && pdata->layer_h != 0) {
+		pdata->ts_xmul = (width  << 16) / pdata->layer_w;
+		pdata->ts_ymul = (height << 16) / pdata->layer_h;
+	}
+
+	current->pixels = osdl_video_flip(pdata);
 
 	return current;
 }
@@ -208,9 +214,24 @@ static int key_event_cb(void *cb_arg, int sdl_kc, int is_pressed)
 	SDL_PrivateKeyboard(is_pressed, &keysym);
 }
 
+/* clamp x to min..max-1 */
+#define clamp(x, min, max) \
+	if (x < (min)) x = min; \
+	if (x >= (max)) x = max
+
 static int ts_event_cb(void *cb_arg, int x, int y, unsigned int pressure)
 {
 	static int was_pressed;
+	SDL_VideoDevice *this = cb_arg;
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+	int xoffs;
+
+	if (!pdata->cfg_no_ts_translate && pdata->layer_w != 0 && pdata->layer_h != 0) {
+		x = (x - pdata->layer_x) * pdata->ts_xmul >> 16;
+		y = (y - pdata->layer_y) * pdata->ts_ymul >> 16;
+		clamp(x, 0, this->screen->w);
+		clamp(y, 0, this->screen->h);
+	}
 
 	SDL_PrivateMouseMotion(0, 0, x, y);
 
@@ -228,7 +249,7 @@ static void omap_PumpEvents(SDL_VideoDevice *this)
 
 	trace();
 
-	omapsdl_input_get_events(0, key_event_cb, ts_event_cb, NULL);
+	omapsdl_input_get_events(0, key_event_cb, ts_event_cb, this);
 
 	// XXX: we might want to process some X events too
 	if (pdata->xenv_up)

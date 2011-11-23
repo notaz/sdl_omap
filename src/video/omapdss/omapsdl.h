@@ -28,8 +28,17 @@
 struct SDL_PrivateVideoData {
 	struct vout_fbdev *fbdev;
 	void *saved_layer;
-	int screen_w, screen_h;
+	/* physical screen size, should match touchscreen */
+	int phys_w, phys_h;
+	/* layer */
+	int layer_x, layer_y, layer_w, layer_h;
+	/* phys -> layer coord multipliers (16.16) */
+	int ts_xmul, ts_ymul;
+	/* misc/config */
 	unsigned int xenv_up:1;
+	unsigned int cfg_force_vsync:1;
+	unsigned int cfg_force_doublebuf:1;
+	unsigned int cfg_no_ts_translate:1;
 };
 
 int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
@@ -46,12 +55,9 @@ int  omapsdl_input_get_events(int timeout_ms,
 		void *cb_arg);
 void omapsdl_input_finish(void);
 
-void omapsdl_config(void);
-void omapsdl_config_from_env(void);
+void omapsdl_config(struct SDL_PrivateVideoData *pdata);
+void omapsdl_config_from_env(struct SDL_PrivateVideoData *pdata);
 
 /* functions for standalone */
 void do_clut(void *dest, void *src, unsigned short *pal, int count);
 
-/* config */
-extern int gcfg_force_vsync;
-extern int gcfg_force_doublebuf;

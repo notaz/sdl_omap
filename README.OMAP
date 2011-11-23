@@ -54,6 +54,10 @@ SDL_OMAP_FORCE_DOUBLEBUF:
   Note that if app isn't updating whole buffer each frame, it will glitch.
   This is the same as specifying SDL_DOUBLEBUF to SDL_SetVideoMode.
 
+SDL_OMAP_NO_TS_TRANSLATE:
+  Disable automatic touchscreen screen -> layer coordinate translation,
+  return real screen coordinates.
+
 
 Config file
 -----------
@@ -67,6 +71,9 @@ force_vsync = 1/0
 
 # same as SDL_OMAP_FORCE_DOUBLEBUF
 force_doublebuf = 1/0
+
+# same as SDL_OMAP_NO_TS_TRANSLATE
+no_ts_translate = 1/0
 
 # can be used to bind a key to SDL keysym, good for quick ports.
 # Example:

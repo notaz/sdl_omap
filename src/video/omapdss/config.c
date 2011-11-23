@@ -13,9 +13,6 @@
 
 #include "omapsdl.h"
 
-int gcfg_force_vsync;
-int gcfg_force_doublebuf;
-
 static char *sskip(char *p)
 {
 	while (*p && isspace(*p))
@@ -52,7 +49,7 @@ static int check_token_eq(char **p_, const char *token)
 	return ret;
 }
 
-void omapsdl_config(void)
+void omapsdl_config(struct SDL_PrivateVideoData *pdata)
 {
 	char buff[256];
 	FILE *f;
@@ -87,11 +84,15 @@ void omapsdl_config(void)
 			continue;
 		}
 		else if (check_token_eq(&p, "force_vsync")) {
-			gcfg_force_vsync = strtol(p, NULL, 0);
+			pdata->cfg_force_vsync = !!strtol(p, NULL, 0);
 			continue;
 		}
 		else if (check_token_eq(&p, "force_doublebuf")) {
-			gcfg_force_doublebuf = strtol(p, NULL, 0);
+			pdata->cfg_force_doublebuf = !!strtol(p, NULL, 0);
+			continue;
+		}
+		else if (check_token_eq(&p, "no_ts_translate")) {
+			pdata->cfg_no_ts_translate = !!strtol(p, NULL, 0);
 			continue;
 		}
 
@@ -101,15 +102,18 @@ bad:
 	fclose(f);
 }
 
-void omapsdl_config_from_env(void)
+void omapsdl_config_from_env(struct SDL_PrivateVideoData *pdata)
 {
 	const char *tmp;
 
 	tmp = getenv("SDL_OMAP_VSYNC");
 	if (tmp != NULL)
-		gcfg_force_vsync = strtol(tmp, NULL, 0);
+		pdata->cfg_force_vsync = !!strtol(tmp, NULL, 0);
 	tmp = getenv("SDL_OMAP_FORCE_DOUBLEBUF");
 	if (tmp != NULL)
-		gcfg_force_doublebuf = strtol(tmp, NULL, 0);
+		pdata->cfg_force_doublebuf = !!strtol(tmp, NULL, 0);
+	tmp = getenv("SDL_OMAP_NO_TS_TRANSLATE");
+	if (tmp != NULL)
+		pdata->cfg_no_ts_translate = !!strtol(tmp, NULL, 0);
 }
 

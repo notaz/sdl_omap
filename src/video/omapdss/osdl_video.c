@@ -42,6 +42,9 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 	struct omapfb_mem_info mi;
 	int ret;
 
+	memset(&pi, 0, sizeof(pi));
+	memset(&mi, 0, sizeof(mi));
+
 	ret = ioctl(fd, OMAPFB_QUERY_PLANE, &pi);
 	if (ret != 0) {
 		err_perror("QUERY_PLANE");
@@ -123,6 +126,8 @@ int osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata)
 	int w, h;
 	FILE *f;
 
+	pdata->phys_w = pdata->phys_h = 0;
+
 	fbname = get_fb_device();
 
 	/* Figure out screen resolution, we need to know default resolution
@@ -190,8 +195,8 @@ int osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata)
 	log("detected %dx%d '%s' (%d) screen attached to fb %d and overlay %d",
 		w, h, screen_name, screen_id, fb_id, overlay_id);
 
-	pdata->screen_w = w;
-	pdata->screen_h = h;
+	pdata->phys_w = w;
+	pdata->phys_h = h;
 	return 0;
 
 skip_screen:
@@ -214,8 +219,8 @@ skip_screen:
 		return -1;
 	}
 
-	pdata->screen_w = fbvar.xres;
-	pdata->screen_h = fbvar.yres;
+	pdata->phys_w = fbvar.xres;
+	pdata->phys_h = fbvar.yres;
 	return 0;
 }
 
@@ -228,10 +233,12 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	const char *tmp;
 	int ret, fd;
 
-	if (pdata->screen_w != 0)
-		screen_w = pdata->screen_w;
-	if (pdata->screen_h != 0)
-		screen_h = pdata->screen_h;
+	pdata->layer_x = pdata->layer_y = pdata->layer_w = pdata->layer_h = 0;
+
+	if (pdata->phys_w != 0)
+		screen_w = pdata->phys_w;
+	if (pdata->phys_h != 0)
+		screen_h = pdata->phys_h;
 
 	fd = open(fbname, O_RDWR);
 	if (fd == -1) {
@@ -285,6 +292,12 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
 	ret = osdl_setup_omapfb(fd, 1, x, y, w, h, width * height * ((bpp + 7) / 8) * 2);
+	if (ret == 0) {
+		pdata->layer_x = x;
+		pdata->layer_y = y;
+		pdata->layer_w = w;
+		pdata->layer_h = h;
+	}
 	close(fd);
 
 	return ret;
@@ -325,7 +338,7 @@ void *osdl_video_flip(struct SDL_PrivateVideoData *pdata)
 	if (pdata->fbdev == NULL)
 		return NULL;
 
-	if (gcfg_force_vsync)
+	if (pdata->cfg_force_vsync)
 		vout_fbdev_wait_vsync(pdata->fbdev);
 
 	return vout_fbdev_flip(pdata->fbdev);
