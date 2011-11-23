@@ -303,10 +303,12 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	return ret;
 }
 
-int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
-			int width, int height, int bpp, int doublebuf)
+void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
+			  int border_l, int border_r, int border_t, int border_b,
+			  int width, int height, int bpp, int doublebuf)
 {
 	const char *fbname;
+	void *result;
 	int ret;
 
 	fbname = get_fb_device();
@@ -318,11 +320,25 @@ int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 
 	ret = osdl_setup_omap_layer(pdata, fbname, width, height, bpp);
 	if (ret < 0)
-		return -1;
+		return NULL;
 
 	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, bpp, doublebuf ? 2 : 1);
 	if (pdata->fbdev == NULL)
-		return -1;
+		return NULL;
+
+	if (border_l | border_r | border_t | border_b) {
+		width -= border_l + border_r;
+		height -= border_t + border_b;
+		result = vout_fbdev_resize(pdata->fbdev, width, height, bpp,
+				border_l, border_r, border_t, border_b, doublebuf ? 2 : 1);
+	}
+	else {
+		result = osdl_video_flip(pdata);
+	}
+	if (result == NULL) {
+		osdl_video_finish(pdata);
+		return NULL;
+	}
 
 	if (!pdata->xenv_up) {
 		ret = xenv_init();
@@ -330,7 +346,7 @@ int osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			pdata->xenv_up = 1;
 	}
 
-	return 0;
+	return result;
 }
 
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata)

@@ -32,6 +32,8 @@ struct SDL_PrivateVideoData {
 	int phys_w, phys_h;
 	/* layer */
 	int layer_x, layer_y, layer_w, layer_h;
+	/* SDL surface borders to hide */
+	int border_l, border_r, border_t, border_b;
 	/* phys -> layer coord multipliers (16.16) */
 	int ts_xmul, ts_ymul;
 	/* misc/config */
@@ -41,7 +43,8 @@ struct SDL_PrivateVideoData {
 	unsigned int cfg_no_ts_translate:1;
 };
 
-int   osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
+void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
+			  int border_l, int border_r, int border_t, int border_b,
 			  int width, int height, int bpp, int doublebuf);
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata);

@@ -37,9 +37,19 @@ Other environment variables:
 
 SDL_OMAP_LAYER_SIZE:
   Output layer size. Regardless what you set with SDL_SetVideoMode(), output
-  will be scaled to this size using hardware. Valid values:
+  will be scaled to this size using hardware with zero processing cost.
+  Note: scaling amount range is limited to roughly 1/4x-8x. The exact range
+  depends on various factors like version of the driver or OMAP hardware itself.
+  Valid values:
     "WxH", for example "640x480"
     "fullscreen" to cover whole screen.
+
+SDL_OMAP_BORDER_CUT:
+  This can be used to move parts of SDL surface out of screen, in other
+  words cut borders and zoom in. Format: <left>,<right>,<top>,<bottom>
+  For example, "0,0,16,0" would hide top 16 lines offscreen, making 17th
+  (16th if you count from 0) line the first visible.
+  Note: like for layer size ranges are limited.
 
 SDL_OMAP_VSYNC:
   Enables waiting for vertical sync on SDL_Flip() calls.

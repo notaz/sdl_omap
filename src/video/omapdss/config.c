@@ -115,5 +115,16 @@ void omapsdl_config_from_env(struct SDL_PrivateVideoData *pdata)
 	tmp = getenv("SDL_OMAP_NO_TS_TRANSLATE");
 	if (tmp != NULL)
 		pdata->cfg_no_ts_translate = !!strtol(tmp, NULL, 0);
+	tmp = getenv("SDL_OMAP_BORDER_CUT");
+	if (tmp != NULL) {
+		int l, r, t, b;
+		if (sscanf(tmp, "%d,%d,%d,%d", &l, &r, &t, &b) == 4
+		    && l >= 0 && r >= 0 && t >= 0 && b >= 0) {
+			pdata->border_l = l, pdata->border_r = r;
+			pdata->border_t = t, pdata->border_b = b;
+		}
+		else
+			err("border incorrectly specified, ignored");
+	}
 }
 

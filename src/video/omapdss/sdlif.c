@@ -94,7 +94,7 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	struct SDL_PrivateVideoData *pdata = this->hidden;
 	SDL_PixelFormat *format;
 	Uint32 unhandled_flags;
-	int ret;
+	void *fbmem;
 
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
 
@@ -122,10 +122,23 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		flags |= SDL_DOUBLEBUF;
 	}
 
-	ret = osdl_video_set_mode(pdata, width, height, bpp,
-		(flags & SDL_DOUBLEBUF) ? 1 : 0);
-	if (ret < 0)
+	if (pdata->border_l | pdata->border_r | pdata->border_t | pdata->border_b) {
+		if (pdata->border_l + pdata->border_r >= width
+		    || pdata->border_t + pdata->border_b >= height)
+		{
+			err("specified border too large, ignoring");
+			pdata->border_l = pdata->border_r = pdata->border_t = pdata->border_b = 0;
+		}
+	}
+
+	fbmem = osdl_video_set_mode(pdata,
+		pdata->border_l, pdata->border_r, pdata->border_t, pdata->border_b,
+		width, height, bpp, (flags & SDL_DOUBLEBUF) ? 1 : 0);
+	if (fbmem == NULL) {
+		log("failing on mode %dx%d@%d, doublebuf %s",
+		    width, height, bpp, (flags & SDL_DOUBLEBUF) ? "on" : "off");
 		return NULL;
+	}
 
 	flags |= SDL_FULLSCREEN | SDL_HWSURFACE;
 	unhandled_flags = flags & ~(SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
@@ -138,13 +151,14 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	current->w = width;
 	current->h = height;
 	current->pitch = SDL_CalculatePitch(current);
+	current->pixels = fbmem;
 
 	if (pdata->layer_w != 0 && pdata->layer_h != 0) {
-		pdata->ts_xmul = (width  << 16) / pdata->layer_w;
-		pdata->ts_ymul = (height << 16) / pdata->layer_h;
+		int v_width  = width  - (pdata->border_l + pdata->border_r);
+		int v_height = height - (pdata->border_t + pdata->border_b);
+		pdata->ts_xmul = (v_width  << 16) / pdata->layer_w;
+		pdata->ts_ymul = (v_height << 16) / pdata->layer_h;
 	}
-
-	current->pixels = osdl_video_flip(pdata);
 
 	return current;
 }
@@ -227,8 +241,8 @@ static int ts_event_cb(void *cb_arg, int x, int y, unsigned int pressure)
 	int xoffs;
 
 	if (!pdata->cfg_no_ts_translate && pdata->layer_w != 0 && pdata->layer_h != 0) {
-		x = (x - pdata->layer_x) * pdata->ts_xmul >> 16;
-		y = (y - pdata->layer_y) * pdata->ts_ymul >> 16;
+		x = pdata->border_l + ((x - pdata->layer_x) * pdata->ts_xmul >> 16);
+		y = pdata->border_t + ((y - pdata->layer_y) * pdata->ts_ymul >> 16);
 		clamp(x, 0, this->screen->w);
 		clamp(y, 0, this->screen->h);
 	}
