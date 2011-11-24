@@ -1,5 +1,5 @@
-(some) OMAP hardware support for SDL
-by notaz (notasas@gmail.com)
+OMAP specific SDL driver
+by Gražvydas "notaz" Ignotas
 
 
 About
@@ -8,13 +8,22 @@ About
 This is a quick SDL driver to make use of some OMAP features, namely double
 buffering and hardware scaler.
 
-The backstory of this is that SDL on Pandora console was suffering from tearing
-and stuttering problems because SDL default x11 driver doesn't work that well
-there. Almost 6 months have passed after pandora's release, no improved
-SDL versions appeared (not blaming anyone here, pandora's availability was low
-and there where were several SDL improvement in the works though). This
-encouraged me to create this quick version until something better appears
-(if ever).
+Features:
+
+ * hardware scaling support (up and down)
+ * doublebuffering support (can eliminate tearing)
+ * vsync support (can give smooth scrolling if done right)
+ * keymap change with a config file
+ * 16/24/32bpp display support
+ * touchscreen input translation to scaler source image coordinates
+ * screen surface cropping / border removal support
+
+Caveats:
+ * disabled by default (falls back to x11/fbcon SDL drivers) unless
+   SDL_VIDEODRIVER environment variable is set
+ * no windowed mode support, fullscreen only
+ * requires functional DSS2 driver with /dev/fb1 mapped to overlay1 or
+   overlay2 and enough free VRAM available for requested display mode.
 
 Although this was created for pandora, there is nothing preventing this to work
 on other OMAP platforms as well (well, nothing intentional at least).
