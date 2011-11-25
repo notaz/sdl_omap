@@ -152,6 +152,7 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	current->h = height;
 	current->pitch = SDL_CalculatePitch(current);
 	current->pixels = fbmem;
+	pdata->app_uses_flip = 0;
 
 	if (pdata->layer_w != 0 && pdata->layer_h != 0) {
 		int v_width  = width  - (pdata->border_l + pdata->border_r);
@@ -177,9 +178,12 @@ static void omap_UnlockHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
 
 static int omap_FlipHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
 {
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+
 	trace("%p", surface);
 
-	surface->pixels = osdl_video_flip(this->hidden);
+	surface->pixels = osdl_video_flip(pdata);
+	pdata->app_uses_flip = 1;
 
 	return 0;
 }
@@ -204,14 +208,16 @@ static int omap_SetColors(SDL_VideoDevice *this, int firstcolor, int ncolors, SD
 
 static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 {
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+
 	trace("%d, %p", nrects, rects);
 
-	/* hmh.. */
-	if (nrects == 1 && rects->x == 0 && rects->y == 0 &&
-	    (this->screen->flags & SDL_DOUBLEBUF) &&
-	    rects->w == this->screen->w && rects->h == this->screen->h)
+	/* for doublebuf forcing on apps */
+	if (nrects == 1 && rects->x == 0 && rects->y == 0
+	    && !pdata->app_uses_flip && (this->screen->flags & SDL_DOUBLEBUF)
+	    && rects->w == this->screen->w && rects->h == this->screen->h)
 	{
-		this->screen->pixels = osdl_video_flip(this->hidden);
+		this->screen->pixels = osdl_video_flip(pdata);
 	}
 }
 
