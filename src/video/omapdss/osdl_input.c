@@ -71,7 +71,7 @@ static short osdl_evdev_map[KEY_CNT] = {
 	[KEY_Z]         = SDLK_z,         [KEY_SLASH]     = SDLK_SLASH,     /* / */
 	[KEY_SPACE]     = SDLK_SPACE,     [KEY_TAB]       = SDLK_TAB,
 	[KEY_BACKSPACE] = SDLK_BACKSPACE, [KEY_INSERT]    = SDLK_INSERT,
-	[KEY_FN]        = SDLK_MODE,
+	[KEY_FN]        = SDLK_WORLD_95,
 	[KEY_DOT]       = SDLK_PERIOD,    [KEY_F21]       = SDLK_COLON,     /* : */
 	[KEY_ENTER]     = SDLK_RETURN,
 	[KEY_LEFTSHIFT] = SDLK_LSHIFT,    [KEY_CAPSLOCK]  = SDLK_CAPSLOCK,
