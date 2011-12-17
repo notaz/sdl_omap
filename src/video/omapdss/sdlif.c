@@ -108,7 +108,7 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		format = SDL_ReallocFormat(current, 24, 0xff0000, 0xff00, 0xff, 0);
 		break;
 	case 32:
-		format = SDL_ReallocFormat(current, 32, 0xff0000, 0xff00, 0xff, 0xff000000);
+		format = SDL_ReallocFormat(current, 32, 0xff0000, 0xff00, 0xff, 0);
 		break;
 	default:
 		err("SetVideoMode: bpp %d not supported", bpp);
