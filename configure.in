@@ -1505,6 +1505,25 @@ AC_HELP_STRING([--enable-video-caca], [use libcaca video driver [[default=no]]])
     fi
 }
 
+dnl Check for ARM NEON
+CheckARM_NEON()
+{
+    AC_MSG_CHECKING(for ARM NEON support)
+    have_arm_neon=no
+    AC_TRY_COMPILE([
+    ],[
+     #ifndef __ARM_NEON__
+     #error NEON not available
+     #endif
+    ],[
+     have_arm_neon=yes
+    ])
+    AC_MSG_RESULT($have_arm_neon)
+    if test x$have_arm_neon = xyes; then
+        SOURCES="$SOURCES $srcdir/src/video/SDL_blit_neon.S"
+    fi
+}
+
 dnl Set up the QTopia video driver if enabled
 CheckQtopia()
 {
@@ -2361,6 +2380,7 @@ case "$host" in
         CheckLinuxVersion
         CheckRPATH
         CheckOMAPDSS
+        CheckARM_NEON
         # Set up files for the audio library
         if test x$enable_audio = xyes; then
           case $ARCH in

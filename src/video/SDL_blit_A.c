@@ -61,6 +61,32 @@
 
 /* Functions to perform alpha blended blitting */
 
+#ifdef __ARM_NEON__
+
+/* NEON optimized blitter callers */
+#define make_neon_caller(name, neon_name) \
+extern void neon_name(void *dst, const void *src, int count); \
+static void name(SDL_BlitInfo *info) \
+{ \
+	int width = info->d_width; \
+	int height = info->d_height; \
+	Uint8 *src = info->s_pixels; \
+	Uint8 *dst = info->d_pixels; \
+	int srcskip = info->s_skip; \
+	int dstskip = info->d_skip; \
+\
+	while ( height-- ) { \
+            neon_name(dst, src, width); \
+	    src += width * 4 + srcskip; \
+	    dst += width * 4 + dstskip; \
+	} \
+}
+
+make_neon_caller(BlitABGRtoXRGBalpha_neon, neon_ABGRtoXRGBalpha)
+make_neon_caller(BlitARGBtoXRGBalpha_neon, neon_ARGBtoXRGBalpha)
+
+#endif /* __ARM_NEON__ */
+
 /* N->1 blending with per-surface alpha */
 static void BlitNto1SurfaceAlpha(SDL_BlitInfo *info)
 {
@@ -2880,9 +2906,20 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 				&& SDL_HasAltiVec())
 				return BlitRGBtoRGBPixelAlphaAltivec;
 #endif
+#ifdef __ARM_NEON__
+			return BlitARGBtoXRGBalpha_neon;
+#endif
 			return BlitRGBtoRGBPixelAlpha;
 		}
 	    }
+#ifdef __ARM_NEON__
+	    if (sf->Gmask == df->Gmask && sf->Amask == 0xff000000 &&
+		((sf->Rmask == 0xff && df->Rmask == 0xff0000 && sf->Bmask == 0xff0000 && df->Bmask == 0xff) ||
+		 (sf->Rmask == 0xff0000 && df->Rmask == 0xff && sf->Bmask == 0xff && df->Bmask == 0xff0000)))
+	    {
+		return BlitABGRtoXRGBalpha_neon;
+	    }
+#endif
 #if SDL_ALTIVEC_BLITTERS
 	    if (sf->Amask && sf->BytesPerPixel == 4 &&
 	        !(surface->map->dst->flags & SDL_HWSURFACE) && SDL_HasAltiVec())

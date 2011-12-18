@@ -1210,6 +1210,33 @@ static void Blit_RGB888_RGB565(SDL_BlitInfo *info)
 
 #endif /* SDL_HERMES_BLITTERS */
 
+#ifdef __ARM_NEON__
+
+/* NEON optimized blitter callers */
+#define make_neon_caller(name, neon_name) \
+extern void neon_name(void *dst, const void *src, int count, unsigned int abits); \
+static void name(SDL_BlitInfo *info) \
+{ \
+	int width = info->d_width; \
+	int height = info->d_height; \
+	Uint8 *src = info->s_pixels; \
+	Uint8 *dst = info->d_pixels; \
+	int srcskip = info->s_skip; \
+	int dstskip = info->d_skip; \
+	unsigned int abits = info->dst->Amask ? 0xff : 0; \
+\
+	while ( height-- ) { \
+            neon_name(dst, src, width, abits); \
+	    src += width * 4 + srcskip; \
+	    dst += width * 4 + dstskip; \
+	} \
+}
+
+make_neon_caller(BlitABGRtoXRGB_neon, neon_ABGRtoXRGB)
+make_neon_caller(BlitARGBtoXRGB_neon, neon_ARGBtoXRGB)
+
+#endif /* __ARM_NEON__ */
+
 
 /* Special optimized blit for RGB 5-6-5 --> 32-bit RGB surfaces */
 #define RGB565_32(dst, src, map) (map[src[LO]*2] + map[src[HI]*2+1])
@@ -2360,6 +2387,15 @@ static const struct blit_table normal_blit_4[] = {
       0, NULL, Blit_RGB888_RGB565, NO_ALPHA },
     { 0x00FF0000,0x0000FF00,0x000000FF, 2, 0x00007C00,0x000003E0,0x0000001F,
       0, NULL, Blit_RGB888_RGB555, NO_ALPHA },
+#endif
+#ifdef __ARM_NEON__
+    { 0x00FF0000,0x0000FF00,0x000000FF, 4, 0x00FF0000,0x0000FF00,0x000000FF,
+      0, NULL, BlitARGBtoXRGB_neon, NO_ALPHA | SET_ALPHA },
+    { 0x000000FF,0x0000FF00,0x00FF0000, 4, 0x00FF0000,0x0000FF00,0x000000FF,
+      0, NULL, BlitABGRtoXRGB_neon, NO_ALPHA | SET_ALPHA },
+    /* RGB->BGR is same as BGR->RGB */
+    { 0x00FF0000,0x0000FF00,0x000000FF, 4, 0x000000FF,0x0000FF00,0x00FF0000,
+      0, NULL, BlitABGRtoXRGB_neon, NO_ALPHA | SET_ALPHA },
 #endif
 	/* Default for 32-bit RGB source, used if no other blitter matches */
 	{ 0,0,0, 0, 0,0,0, 0, NULL, BlitNtoN, 0 }
