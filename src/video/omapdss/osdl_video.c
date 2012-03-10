@@ -231,6 +231,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	int screen_w = w, screen_h = h;
 	int tmp_w, tmp_h;
 	const char *tmp;
+	int retval = -1;
 	int ret, fd;
 
 	pdata->layer_x = pdata->layer_y = pdata->layer_w = pdata->layer_h = 0;
@@ -251,18 +252,18 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 		struct omapfb_saved_layer *slayer;
 		slayer = calloc(1, sizeof(*slayer));
 		if (slayer == NULL)
-			return -1;
+			goto out;
 
 		ret = ioctl(fd, OMAPFB_QUERY_PLANE, &slayer->pi);
 		if (ret != 0) {
 			err_perror("QUERY_PLANE");
-			return -1;
+			goto out;
 		}
 
 		ret = ioctl(fd, OMAPFB_QUERY_MEM, &slayer->mi);
 		if (ret != 0) {
 			err_perror("QUERY_MEM");
-			return -1;
+			goto out;
 		}
 
 		pdata->saved_layer = slayer;
@@ -278,16 +279,15 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 			err("layer size specified incorrectly, "
 				"should be like 800x480");
 	}
-	else {
-		/* the layer can't be set larger than screen */
-		tmp_w = w, tmp_h = h;
-		if (w > screen_w)
-			w = screen_w;
-		if (h > screen_h)
-			h = screen_h;
-		if (w != tmp_w || h != tmp_h)
-			log("layer resized %dx%d -> %dx%d to fit screen", tmp_w, tmp_h, w, h);
-	}
+
+	/* the layer can't be set larger than screen */
+	tmp_w = w, tmp_h = h;
+	if (w > screen_w)
+		w = screen_w;
+	if (h > screen_h)
+		h = screen_h;
+	if (w != tmp_w || h != tmp_h)
+		log("layer resized %dx%d -> %dx%d to fit screen", tmp_w, tmp_h, w, h);
 
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
@@ -298,9 +298,11 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 		pdata->layer_w = w;
 		pdata->layer_h = h;
 	}
-	close(fd);
 
-	return ret;
+	retval = ret;
+out:
+	close(fd);
+	return retval;
 }
 
 void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
