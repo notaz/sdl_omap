@@ -115,10 +115,36 @@ static int read_sysfs(const char *fname, char *buff, size_t size)
 	return 0;
 }
 
+int read_vscreeninfo(const char *fbname, int *w, int *h)
+{
+	struct fb_var_screeninfo fbvar;
+	int ret, fd;
+
+	fd = open(fbname, O_RDWR);
+	if (fd == -1) {
+		err_perror("open %s", fbname);
+		return -1;
+	}
+
+	ret = ioctl(fd, FBIOGET_VSCREENINFO, &fbvar);
+	close(fd);
+
+	if (ret == -1) {
+		err_perror("ioctl %s", fbname);
+		return -1;
+	}
+
+	if (fbvar.xres == 0 || fbvar.yres == 0)
+		return -1;
+
+	*w = fbvar.xres;
+	*h = fbvar.yres;
+	return 0;
+}
+
 int osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata)
 {
 	int fb_id, overlay_id = -1, screen_id = -1;
-	struct fb_var_screeninfo fbvar;
 	char buff[64], screen_name[64];
 	const char *fbname;
 	struct stat status;
@@ -201,26 +227,17 @@ int osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata)
 
 skip_screen:
 	/* attempt to extract this from FB then */
-	fd = open(fbname, O_RDWR);
-	if (fd == -1) {
-		err_perror("open %s", fbname);
-		return -1;
+	ret = read_vscreeninfo(fbname, &pdata->phys_w, &pdata->phys_h);
+	if (ret != 0 && strcmp(fbname, "/dev/fb0") != 0) {
+		/* last resort */
+		ret = read_vscreeninfo("/dev/fb0", &pdata->phys_w, &pdata->phys_h);
 	}
 
-	ret = ioctl(fd, FBIOGET_VSCREENINFO, &fbvar);
-	close(fd);
-	if (ret == -1) {
-		err_perror("ioctl %s", fbname);
-		return -1;
-	}
-
-	if (fbvar.xres == 0 || fbvar.yres == 0) {
+	if (ret != 0) {
 		err("VSCREENINFO has nothing meaningful");
 		return -1;
 	}
 
-	pdata->phys_w = fbvar.xres;
-	pdata->phys_h = fbvar.yres;
 	return 0;
 }
 
