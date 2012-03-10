@@ -370,13 +370,17 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata)
 {
+	void *ret;
+
 	if (pdata->fbdev == NULL)
 		return NULL;
+
+	ret = vout_fbdev_flip(pdata->fbdev);
 
 	if (pdata->cfg_force_vsync)
 		vout_fbdev_wait_vsync(pdata->fbdev);
 
-	return vout_fbdev_flip(pdata->fbdev);
+	return ret;
 }
 
 void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
