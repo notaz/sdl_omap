@@ -23,7 +23,7 @@
 #include <tslib.h>
 #endif
 
-#include "omapsdl.h"
+#include "osdl.h"
 
 /* XXX: these should go to private data */
 static int osdl_evdev_devs[32];

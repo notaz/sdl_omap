@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <linux/fb.h>
 
-#include "omapsdl.h"
+#include "osdl.h"
 #include "omapfb.h"
 #include "linux/fbdev.h"
 #include "linux/xenv.h"

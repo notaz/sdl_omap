@@ -13,7 +13,7 @@
 #include "../../events/SDL_events_c.h"
 
 #include "linux/xenv.h"
-#include "omapsdl.h"
+#include "osdl.h"
 
 
 static int omap_available(void) 

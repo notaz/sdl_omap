@@ -11,7 +11,7 @@
 #include <strings.h>
 #include <ctype.h>
 
-#include "omapsdl.h"
+#include "osdl.h"
 
 static char *sskip(char *p)
 {

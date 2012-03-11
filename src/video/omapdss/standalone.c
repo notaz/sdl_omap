@@ -11,7 +11,7 @@
 #include <sys/time.h>
 #include <SDL/SDL.h>
 
-#include "omapsdl.h"
+#include "osdl.h"
 
 static struct SDL_PrivateVideoData state;
 static SDL_Surface *g_screen;
