@@ -1,5 +1,5 @@
 /*
- * (C) Gražvydas "notaz" Ignotas, 2010-2011
+ * (C) Gražvydas "notaz" Ignotas, 2010-2012
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
@@ -36,10 +36,12 @@ static const char *get_fb_device(void)
 	return fbname;
 }
 
-static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, int mem)
+static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h,
+	int mem, int *buffer_count)
 {
 	struct omapfb_plane_info pi;
 	struct omapfb_mem_info mi;
+	int mem_blocks = *buffer_count;
 	int ret;
 
 	memset(&pi, 0, sizeof(pi));
@@ -65,14 +67,20 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h, in
 			err_perror("SETUP_PLANE");
 	}
 
-	if (mi.size < mem) {
-		mi.size = mem;
-		ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
-		if (ret != 0) {
+	if (mi.size < mem * mem_blocks) {
+		for (; mem_blocks > 0; mem_blocks--) {
+			mi.size = mem * mem_blocks;
+			ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
+			if (ret == 0)
+				break;
+		}
+		if (ret != 0 || mem_blocks <= 0) {
+			err("failed to allocate at least %d bytes of vram:\n", mem);
 			err_perror("SETUP_MEM");
 			return -1;
 		}
 	}
+	*buffer_count = mem_blocks;
 
 	pi.pos_x = x;
 	pi.pos_y = y;
@@ -242,7 +250,7 @@ skip_screen:
 }
 
 static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
-		const char *fbname, int width, int height, int bpp)
+		const char *fbname, int width, int height, int bpp, int *buffer_count)
 {
 	int x = 0, y = 0, w = width, h = height; /* layer size and pos */
 	int screen_w = w, screen_h = h;
@@ -308,7 +316,8 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
-	ret = osdl_setup_omapfb(fd, 1, x, y, w, h, width * height * ((bpp + 7) / 8) * 2);
+	ret = osdl_setup_omapfb(fd, 1, x, y, w, h,
+				width * height * ((bpp + 7) / 8), buffer_count);
 	if (ret == 0) {
 		pdata->layer_x = x;
 		pdata->layer_y = y;
@@ -324,8 +333,9 @@ out:
 
 void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			  int border_l, int border_r, int border_t, int border_b,
-			  int width, int height, int bpp, int doublebuf)
+			  int width, int height, int bpp, int *doublebuf)
 {
+	int buffers_try, buffers_set;
 	const char *fbname;
 	void *result;
 	int ret;
@@ -337,27 +347,30 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 		pdata->fbdev = NULL;
 	}
 
-	ret = osdl_setup_omap_layer(pdata, fbname, width, height, bpp);
-	if (ret < 0)
-		return NULL;
+	buffers_try = buffers_set = 1;
+	if (*doublebuf)
+		/* actually try tripple buffering for reduced chance of tearing */
+		buffers_try = buffers_set = 3;
 
-	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, bpp, doublebuf ? 2 : 1);
+	ret = osdl_setup_omap_layer(pdata, fbname, width, height, bpp, &buffers_set);
+	if (ret < 0)
+		goto fail;
+
+	pdata->fbdev = vout_fbdev_init(fbname, &width, &height, bpp, buffers_set);
 	if (pdata->fbdev == NULL)
-		return NULL;
+		goto fail;
 
 	if (border_l | border_r | border_t | border_b) {
 		width -= border_l + border_r;
 		height -= border_t + border_b;
 		result = vout_fbdev_resize(pdata->fbdev, width, height, bpp,
-				border_l, border_r, border_t, border_b, doublebuf ? 2 : 1);
+				border_l, border_r, border_t, border_b, buffers_set);
 	}
 	else {
 		result = osdl_video_flip(pdata);
 	}
-	if (result == NULL) {
-		osdl_video_finish(pdata);
-		return NULL;
-	}
+	if (result == NULL)
+		goto fail;
 
 	if (!pdata->xenv_up) {
 		ret = xenv_init();
@@ -365,7 +378,17 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			pdata->xenv_up = 1;
 	}
 
+	if (buffers_try != buffers_set) {
+		log("only %d/%d buffers available, expect tearing\n",
+			buffers_set, buffers_try);
+		*doublebuf = buffers_set > 1;
+	}
+
 	return result;
+
+fail:
+	osdl_video_finish(pdata);
+	return NULL;
 }
 
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata)

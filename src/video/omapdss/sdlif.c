@@ -1,5 +1,5 @@
 /*
- * (C) Gražvydas "notaz" Ignotas, 2010
+ * (C) Gražvydas "notaz" Ignotas, 2010-2012
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
@@ -94,6 +94,7 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	struct SDL_PrivateVideoData *pdata = this->hidden;
 	SDL_PixelFormat *format;
 	Uint32 unhandled_flags;
+	int doublebuf;
 	void *fbmem;
 
 	trace("%d, %d, %d, %08x", width, height, bpp, flags);
@@ -131,13 +132,19 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		}
 	}
 
+	doublebuf = (flags & SDL_DOUBLEBUF) ? 1 : 0;
 	fbmem = osdl_video_set_mode(pdata,
 		pdata->border_l, pdata->border_r, pdata->border_t, pdata->border_b,
-		width, height, bpp, (flags & SDL_DOUBLEBUF) ? 1 : 0);
+		width, height, bpp, &doublebuf);
 	if (fbmem == NULL) {
-		log("failing on mode %dx%d@%d, doublebuf %s",
-		    width, height, bpp, (flags & SDL_DOUBLEBUF) ? "on" : "off");
+		err("failing on mode %dx%d@%d, doublebuf %s, border %d,%d,%d,%d",
+		    width, height, bpp, (flags & SDL_DOUBLEBUF) ? "on" : "off",
+		    pdata->border_l, pdata->border_r, pdata->border_t, pdata->border_b);
 		return NULL;
+	}
+	if ((flags & SDL_DOUBLEBUF) && !doublebuf) {
+		log("doublebuffering could not be set\n");
+		flags &= ~SDL_DOUBLEBUF;
 	}
 
 	flags |= SDL_FULLSCREEN | SDL_HWSURFACE;
