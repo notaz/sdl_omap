@@ -38,10 +38,12 @@ struct SDL_PrivateVideoData {
 	int ts_xmul, ts_ymul;
 	/* misc/config */
 	unsigned int xenv_up:1;
+	unsigned int xenv_mouse:1;
 	unsigned int app_uses_flip:1;
 	unsigned int cfg_force_vsync:1;
 	unsigned int cfg_force_doublebuf:1;
 	unsigned int cfg_no_ts_translate:1;
+	unsigned int cfg_ts_force_tslib:1;
 };
 
 void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,

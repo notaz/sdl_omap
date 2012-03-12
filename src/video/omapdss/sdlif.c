@@ -246,41 +246,74 @@ static int key_event_cb(void *cb_arg, int sdl_kc, int is_pressed)
 	if (x < (min)) x = min; \
 	if (x >= (max)) x = max
 
+static void translate_mouse(SDL_VideoDevice *this, int *x, int *y)
+{
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+
+	if (!pdata->cfg_no_ts_translate && pdata->layer_w != 0 && pdata->layer_h != 0) {
+		*x = pdata->border_l + ((*x - pdata->layer_x) * pdata->ts_xmul >> 16);
+		*y = pdata->border_t + ((*y - pdata->layer_y) * pdata->ts_ymul >> 16);
+		clamp(*x, 0, this->screen->w);
+		clamp(*y, 0, this->screen->h);
+	}
+}
+
 static int ts_event_cb(void *cb_arg, int x, int y, unsigned int pressure)
 {
 	static int was_pressed;
 	SDL_VideoDevice *this = cb_arg;
 	struct SDL_PrivateVideoData *pdata = this->hidden;
-	int xoffs;
 
-	if (!pdata->cfg_no_ts_translate && pdata->layer_w != 0 && pdata->layer_h != 0) {
-		x = pdata->border_l + ((x - pdata->layer_x) * pdata->ts_xmul >> 16);
-		y = pdata->border_t + ((y - pdata->layer_y) * pdata->ts_ymul >> 16);
-		clamp(x, 0, this->screen->w);
-		clamp(y, 0, this->screen->h);
-	}
-
-	SDL_PrivateMouseMotion(0, 0, x, y);
+	translate_mouse(this, &x, &y);
 
 	pressure = !!pressure;
 	if (pressure != was_pressed) {
-		SDL_PrivateMouseButton(pressure ? SDL_PRESSED : SDL_RELEASED, 1, 0, 0);
+		SDL_PrivateMouseButton(pressure ? SDL_PRESSED : SDL_RELEASED, 1, x, y);
 		was_pressed = pressure;
 	}
+	else
+		SDL_PrivateMouseMotion(0, 0, x, y);
+}
+
+static int mouseb_event_cb(void *cb_arg, int x, int y, int button, int is_pressed)
+{
+	SDL_VideoDevice *this = cb_arg;
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+
+	translate_mouse(this, &x, &y);
+	SDL_PrivateMouseButton(is_pressed ? SDL_PRESSED : SDL_RELEASED, button, x, y);
+}
+
+static int mousem_event_cb(void *cb_arg, int x, int y)
+{
+	SDL_VideoDevice *this = cb_arg;
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+
+	translate_mouse(this, &x, &y);
+	SDL_PrivateMouseMotion(0, 0, x, y);
 }
 
 static void omap_PumpEvents(SDL_VideoDevice *this) 
 {
 	struct SDL_PrivateVideoData *pdata = this->hidden;
-	int dummy;
+	int read_tslib = 1;
 
 	trace();
 
-	omapsdl_input_get_events(0, key_event_cb, ts_event_cb, this);
+	if (pdata->xenv_up) {
+		if (!pdata->cfg_ts_force_tslib) {
+			xenv_update(NULL, mouseb_event_cb, mousem_event_cb, this);
+			if (pdata->xenv_mouse)
+				read_tslib = 0;
+		}
+		else {
+			/* just flush X event queue */
+			xenv_update(NULL, NULL, NULL, NULL);
+		}
+	}
 
-	// XXX: we might want to process some X events too
-	if (pdata->xenv_up)
-		xenv_update(&dummy);
+	omapsdl_input_get_events(0, key_event_cb,
+		read_tslib ? ts_event_cb : NULL, this);
 }
 
 static SDL_VideoDevice *omap_create(int devindex)

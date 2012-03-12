@@ -373,9 +373,12 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 		goto fail;
 
 	if (!pdata->xenv_up) {
-		ret = xenv_init();
-		if (ret == 0)
+		int xenv_mouse = 0;
+		ret = xenv_init(&xenv_mouse);
+		if (ret == 0) {
 			pdata->xenv_up = 1;
+			pdata->xenv_mouse = xenv_mouse;
+		}
 	}
 
 	if (buffers_try != buffers_set) {

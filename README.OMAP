@@ -77,6 +77,10 @@ SDL_OMAP_NO_TS_TRANSLATE:
   Disable automatic touchscreen screen -> layer coordinate translation,
   return real screen coordinates.
 
+SDL_OMAP_TS_FORCE_TSLIB:
+  Always use tslib to read touchscreen. Without this, use X events when they
+  are available (this gives external input device support).
+
 
 Config file
 -----------
@@ -93,6 +97,9 @@ force_doublebuf = 1/0
 
 # same as SDL_OMAP_NO_TS_TRANSLATE
 no_ts_translate = 1/0
+
+# same as SDL_OMAP_TS_FORCE_TSLIB
+ts_force_tslib = 1/0
 
 # can be used to bind a key to SDL keysym, good for quick ports.
 # Example:

@@ -95,6 +95,10 @@ void omapsdl_config(struct SDL_PrivateVideoData *pdata)
 			pdata->cfg_no_ts_translate = !!strtol(p, NULL, 0);
 			continue;
 		}
+		else if (check_token_eq(&p, "ts_force_tslib")) {
+			pdata->cfg_ts_force_tslib = !!strtol(p, NULL, 0);
+			continue;
+		}
 
 bad:
 		err("config: failed to parse: %s", line);
@@ -115,6 +119,9 @@ void omapsdl_config_from_env(struct SDL_PrivateVideoData *pdata)
 	tmp = getenv("SDL_OMAP_NO_TS_TRANSLATE");
 	if (tmp != NULL)
 		pdata->cfg_no_ts_translate = !!strtol(tmp, NULL, 0);
+	tmp = getenv("SDL_OMAP_TS_FORCE_TSLIB");
+	if (tmp != NULL)
+		pdata->cfg_ts_force_tslib = !!strtol(tmp, NULL, 0);
 	tmp = getenv("SDL_OMAP_BORDER_CUT");
 	if (tmp != NULL) {
 		int l, r, t, b;
