@@ -233,11 +233,12 @@ static void omap_InitOSKeymap(SDL_VideoDevice *this)
 	trace();
 }
 
-static int key_event_cb(void *cb_arg, int sdl_kc, int is_pressed)
+static int key_event_cb(void *cb_arg, int sdl_kc, int sdl_sc, int is_pressed)
 {
 	SDL_keysym keysym = { 0, };
 
 	keysym.sym = sdl_kc;
+	keysym.scancode = sdl_sc;
 	SDL_PrivateKeyboard(is_pressed, &keysym);
 }
 

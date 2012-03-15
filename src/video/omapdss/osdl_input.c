@@ -1,5 +1,5 @@
 /*
- * (C) Gražvydas "notaz" Ignotas, 2010
+ * (C) Gražvydas "notaz" Ignotas, 2010-2012
  *
  * This work is licensed under the terms of the GNU LGPL, version 2.1 or later.
  * See the COPYING file in the top-level directory.
@@ -559,7 +559,7 @@ void omapsdl_input_finish(void)
 }
 
 int omapsdl_input_get_events(int timeout_ms,
-		int (*key_cb)(void *cb_arg, int sdl_kc, int is_pressed),
+		int (*key_cb)(void *cb_arg, int sdl_kc, int sdl_sc, int is_pressed),
 		int (*ts_cb)(void *cb_arg, int x, int y, unsigned int pressure),
 		void *cb_arg)
 {
@@ -634,7 +634,8 @@ int omapsdl_input_get_events(int timeout_ms,
 				sdl_kc = osdl_evdev_map[ev.code];
 				if (sdl_kc == 0)
 					continue; /* not mapped */
-				ret = key_cb(cb_arg, sdl_kc, ev.value);
+				/* scancode note: stock SDL doesn't do +8 in fbcon driver */
+				ret = key_cb(cb_arg, sdl_kc, ev.code + 8, ev.value);
 				if (ret != 0)
 					return ret;
 			}
@@ -649,13 +650,15 @@ static unsigned char g_keystate[SDLK_LAST];
 
 struct key_event {
 	int sdl_kc;
+	int sdl_sc;
 	int is_pressed;
 };
 
-static int do_key_cb(void *cb_arg, int sdl_kc, int is_pressed)
+static int do_key_cb(void *cb_arg, int sdl_kc, int sdl_sc, int is_pressed)
 {
 	struct key_event *ev = cb_arg;
 	ev->sdl_kc = sdl_kc;
+	ev->sdl_sc = sdl_sc;
 	ev->is_pressed = is_pressed;
 
 	return 1; /* done */
@@ -680,6 +683,7 @@ static int do_event(SDL_Event *event, int timeout)
 	// event->key.which =
 	event->key.state = ev.is_pressed ? SDL_PRESSED : SDL_RELEASED;
 	event->key.keysym.sym = ev.sdl_kc;
+	event->key.keysym.scancode = ev.sdl_sc;
 	// event->key.keysym.mod
 
 	return 1;
