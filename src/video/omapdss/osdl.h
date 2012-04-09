@@ -48,9 +48,11 @@ struct SDL_PrivateVideoData {
 
 void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			  int border_l, int border_r, int border_t, int border_b,
-			  int width, int height, int bpp, int *doublebuf);
+			  int width, int height, int bpp, int *doublebuf,
+			  const char *wm_title);
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata);
+int   osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause);
 void  osdl_video_finish(struct SDL_PrivateVideoData *pdata);
 
 void omapsdl_input_init(void);

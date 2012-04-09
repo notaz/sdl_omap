@@ -22,9 +22,11 @@
 #include "linux/fbdev.h"
 #include "linux/xenv.h"
 
-struct omapfb_saved_layer {
+struct omapfb_state {
 	struct omapfb_plane_info pi;
 	struct omapfb_mem_info mi;
+	struct omapfb_plane_info pi_old;
+	struct omapfb_mem_info mi_old;
 };
 
 static const char *get_fb_device(void)
@@ -36,8 +38,8 @@ static const char *get_fb_device(void)
 	return fbname;
 }
 
-static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h,
-	int mem, int *buffer_count)
+static int osdl_setup_omapfb(struct omapfb_state *ostate, int fd, int enabled,
+	int x, int y, int w, int h, int mem, int *buffer_count)
 {
 	struct omapfb_plane_info pi;
 	struct omapfb_mem_info mi;
@@ -95,6 +97,8 @@ static int osdl_setup_omapfb(int fd, int enabled, int x, int y, int w, int h,
 		return -1;
 	}
 
+	ostate->pi = pi;
+	ostate->mi = mi;
 	return 0;
 }
 
@@ -274,18 +278,18 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	/* FIXME: assuming layer doesn't change here */
 	if (pdata->saved_layer == NULL) {
-		struct omapfb_saved_layer *slayer;
+		struct omapfb_state *slayer;
 		slayer = calloc(1, sizeof(*slayer));
 		if (slayer == NULL)
 			goto out;
 
-		ret = ioctl(fd, OMAPFB_QUERY_PLANE, &slayer->pi);
+		ret = ioctl(fd, OMAPFB_QUERY_PLANE, &slayer->pi_old);
 		if (ret != 0) {
 			err_perror("QUERY_PLANE");
 			goto out;
 		}
 
-		ret = ioctl(fd, OMAPFB_QUERY_MEM, &slayer->mi);
+		ret = ioctl(fd, OMAPFB_QUERY_MEM, &slayer->mi_old);
 		if (ret != 0) {
 			err_perror("QUERY_MEM");
 			goto out;
@@ -316,7 +320,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
-	ret = osdl_setup_omapfb(fd, 1, x, y, w, h,
+	ret = osdl_setup_omapfb(pdata->saved_layer, fd, 1, x, y, w, h,
 				width * height * ((bpp + 7) / 8), buffer_count);
 	if (ret == 0) {
 		pdata->layer_x = x;
@@ -333,7 +337,8 @@ out:
 
 void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			  int border_l, int border_r, int border_t, int border_b,
-			  int width, int height, int bpp, int *doublebuf)
+			  int width, int height, int bpp, int *doublebuf,
+			  const char *wm_title)
 {
 	int buffers_try, buffers_set;
 	const char *fbname;
@@ -373,11 +378,11 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 		goto fail;
 
 	if (!pdata->xenv_up) {
-		int xenv_mouse = 0;
-		ret = xenv_init(&xenv_mouse);
+		int xenv_flags = XENV_CAP_KEYS | XENV_CAP_MOUSE;
+		ret = xenv_init(&xenv_flags, wm_title);
 		if (ret == 0) {
 			pdata->xenv_up = 1;
-			pdata->xenv_mouse = xenv_mouse;
+			pdata->xenv_mouse = (xenv_flags & XENV_CAP_MOUSE) ? 1 : 0;
 		}
 	}
 
@@ -409,6 +414,69 @@ void *osdl_video_flip(struct SDL_PrivateVideoData *pdata)
 	return ret;
 }
 
+int osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause)
+{
+	struct omapfb_state *state = pdata->saved_layer;
+	struct omapfb_plane_info pi;
+	struct omapfb_mem_info mi;
+	int enabled;
+	int fd = -1;
+	int ret;
+
+	if (pdata->fbdev != NULL)
+		fd = vout_fbdev_get_fd(pdata->fbdev);
+	if (fd == -1) {
+		err("bad fd %d", fd);
+		return -1;
+	}
+	if (state == NULL) {
+		err("missing layer state\n");
+		return -1;
+	}
+
+	if (is_pause) {
+		ret = vout_fbdev_save(pdata->fbdev);
+		if (ret != 0)
+			return ret;
+		pi = state->pi_old;
+		mi = state->mi_old;
+		enabled = pi.enabled;
+	} else {
+		pi = state->pi;
+		mi = state->mi;
+		enabled = 1;
+	}
+	pi.enabled = 0;
+	ret = ioctl(fd, OMAPFB_SETUP_PLANE, &pi);
+	if (ret != 0) {
+		err_perror("SETUP_PLANE");
+		return -1;
+	}
+
+	ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
+	if (ret != 0)
+		err_perror("SETUP_MEM");
+
+	if (!is_pause) {
+		ret = vout_fbdev_restore(pdata->fbdev);
+		if (ret != 0) {
+			err("fbdev_restore failed\n");
+			return ret;
+		}
+	}
+
+	if (enabled) {
+		pi.enabled = 1;
+		ret = ioctl(fd, OMAPFB_SETUP_PLANE, &pi);
+		if (ret != 0) {
+			err_perror("SETUP_PLANE");
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
 void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 {
 	static const char *fbname;
@@ -421,20 +489,20 @@ void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 
 	/* restore the OMAP layer */
 	if (pdata->saved_layer != NULL) {
-		struct omapfb_saved_layer *slayer = pdata->saved_layer;
+		struct omapfb_state *slayer = pdata->saved_layer;
 		int fd;
 
 		fd = open(fbname, O_RDWR);
 		if (fd != -1) {
-			int enabled = slayer->pi.enabled;
+			int enabled = slayer->pi_old.enabled;
 
 			/* be sure to disable while setting up */
-			slayer->pi.enabled = 0;
-			ioctl(fd, OMAPFB_SETUP_PLANE, &slayer->pi);
-			ioctl(fd, OMAPFB_SETUP_MEM, &slayer->mi);
+			slayer->pi_old.enabled = 0;
+			ioctl(fd, OMAPFB_SETUP_PLANE, &slayer->pi_old);
+			ioctl(fd, OMAPFB_SETUP_MEM, &slayer->mi_old);
 			if (enabled) {
-				slayer->pi.enabled = enabled;
-				ioctl(fd, OMAPFB_SETUP_PLANE, &slayer->pi);
+				slayer->pi_old.enabled = enabled;
+				ioctl(fd, OMAPFB_SETUP_PLANE, &slayer->pi_old);
 			}
 			close(fd);
 		}

@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <X11/XF86keysym.h>
 
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
@@ -135,7 +136,7 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 	doublebuf = (flags & SDL_DOUBLEBUF) ? 1 : 0;
 	fbmem = osdl_video_set_mode(pdata,
 		pdata->border_l, pdata->border_r, pdata->border_t, pdata->border_b,
-		width, height, bpp, &doublebuf);
+		width, height, bpp, &doublebuf, this->wm_title);
 	if (fbmem == NULL) {
 		err("failing on mode %dx%d@%d, doublebuf %s, border %d,%d,%d,%d",
 		    width, height, bpp, (flags & SDL_DOUBLEBUF) ? "on" : "off",
@@ -276,7 +277,7 @@ static int ts_event_cb(void *cb_arg, int x, int y, unsigned int pressure)
 		SDL_PrivateMouseMotion(0, 0, x, y);
 }
 
-static int mouseb_event_cb(void *cb_arg, int x, int y, int button, int is_pressed)
+static int xmouseb_event_cb(void *cb_arg, int x, int y, int button, int is_pressed)
 {
 	SDL_VideoDevice *this = cb_arg;
 	struct SDL_PrivateVideoData *pdata = this->hidden;
@@ -285,13 +286,29 @@ static int mouseb_event_cb(void *cb_arg, int x, int y, int button, int is_presse
 	SDL_PrivateMouseButton(is_pressed ? SDL_PRESSED : SDL_RELEASED, button, x, y);
 }
 
-static int mousem_event_cb(void *cb_arg, int x, int y)
+static int xmousem_event_cb(void *cb_arg, int x, int y)
 {
 	SDL_VideoDevice *this = cb_arg;
 	struct SDL_PrivateVideoData *pdata = this->hidden;
 
 	translate_mouse(this, &x, &y);
 	SDL_PrivateMouseMotion(0, 0, x, y);
+}
+
+static int xkey_cb(void *cb_arg, int kc, int is_pressed)
+{
+	SDL_VideoDevice *this = cb_arg;
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+	int ret;
+
+	if (kc == XF86XK_MenuKB && is_pressed) {
+		ret = osdl_video_pause(pdata, 1);
+		if (ret == 0) {
+			xenv_minimize();
+			osdl_video_pause(pdata, 0);
+			omapsdl_input_get_events(0, NULL, NULL, NULL);
+		}
+	}
 }
 
 static void omap_PumpEvents(SDL_VideoDevice *this) 
@@ -303,7 +320,7 @@ static void omap_PumpEvents(SDL_VideoDevice *this)
 
 	if (pdata->xenv_up) {
 		if (!pdata->cfg_ts_force_tslib) {
-			xenv_update(NULL, mouseb_event_cb, mousem_event_cb, this);
+			xenv_update(xkey_cb, xmouseb_event_cb, xmousem_event_cb, this);
 			if (pdata->xenv_mouse)
 				read_tslib = 0;
 		}

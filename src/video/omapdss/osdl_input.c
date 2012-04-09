@@ -625,8 +625,8 @@ int omapsdl_input_get_events(int timeout_ms,
 					break;
 				}
 
-				if (ev.type != EV_KEY)
-					continue; /* not key event */
+				if (ev.type != EV_KEY || key_cb == NULL)
+					continue; /* not key event or not needed */
 				if ((unsigned int)ev.value > 1)
 					continue; /* not key up/down */
 				if ((unsigned int)ev.code >= ARRAY_SIZE(osdl_evdev_map))
