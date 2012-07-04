@@ -22,6 +22,8 @@
 #include "linux/fbdev.h"
 #include "linux/xenv.h"
 
+#define MIN(a, b) ( ((a) < (b)) ? (a) : (b) )
+
 struct omapfb_state {
 	struct omapfb_plane_info pi;
 	struct omapfb_mem_info mi;
@@ -300,13 +302,28 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	tmp = getenv("SDL_OMAP_LAYER_SIZE");
 	if (tmp != NULL) {
-		if (strcasecmp(tmp, "fullscreen") == 0)
+		if (strcasecmp(tmp, "fullscreen") == 0) {
 			w = screen_w, h = screen_h;
-		else if (sscanf(tmp, "%dx%d", &tmp_w, &tmp_h) == 2)
+		}
+		else if (strcasecmp(tmp, "scaled") == 0) {
+			float factor = MIN(((float)screen_w) / width, ((float)screen_h) / height);
+			w = (int)(factor*width), h = (int)(factor*height);
+		}
+		else if (strcasecmp(tmp, "pixelperfect") == 0) {
+			float factor = MIN(((float)screen_w) / width, ((float)screen_h) / height);
+			w = ((int)factor) * width, h = ((int)factor) * height;
+			/* factor < 1.f => 0x0 layer, so fall back to 'scaled' */
+			if (!w || !h) {
+				w = (int)(factor * width), h = (int)(factor * height);
+			}
+		}
+		else if (sscanf(tmp, "%dx%d", &tmp_w, &tmp_h) == 2) {
 			w = tmp_w, h = tmp_h;
-		else
+		}
+		else {
 			err("layer size specified incorrectly, "
 				"should be like 800x480");
+		}
 	}
 
 	/* the layer can't be set larger than screen */

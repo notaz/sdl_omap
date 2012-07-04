@@ -52,6 +52,8 @@ SDL_OMAP_LAYER_SIZE:
   Valid values:
     "WxH", for example "640x480"
     "fullscreen" to cover whole screen.
+    "scaled" to upscale the screen proportionally, letterboxing or pillarboxing.
+    "pixelperfect" to upscale by a whole-number factor (e.g. 2x or 3x size).
 
 SDL_OMAP_BORDER_CUT:
   This can be used to move parts of SDL surface out of screen, in other
