@@ -82,8 +82,29 @@ static void name(SDL_BlitInfo *info) \
 	} \
 }
 
+#define make_neon_callerS(name, neon_name) \
+extern void neon_name(void *dst, const void *src, int count, unsigned int alpha); \
+static void name(SDL_BlitInfo *info) \
+{ \
+	int width = info->d_width; \
+	int height = info->d_height; \
+	Uint8 *src = info->s_pixels; \
+	Uint8 *dst = info->d_pixels; \
+	int srcskip = info->s_skip; \
+	int dstskip = info->d_skip; \
+	unsigned alpha = info->src->alpha;\
+\
+	while ( height-- ) { \
+	    neon_name(dst, src, width, alpha); \
+	    src += width * 4 + srcskip; \
+	    dst += width * 4 + dstskip; \
+	} \
+}
+
 make_neon_caller(BlitABGRtoXRGBalpha_neon, neon_ABGRtoXRGBalpha)
 make_neon_caller(BlitARGBtoXRGBalpha_neon, neon_ARGBtoXRGBalpha)
+make_neon_callerS(BlitABGRtoXRGBalphaS_neon, neon_ABGRtoXRGBalphaS)
+make_neon_callerS(BlitARGBtoXRGBalphaS_neon, neon_ARGBtoXRGBalphaS)
 
 #endif /* __ARM_NEON__ */
 
@@ -2831,6 +2852,12 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 			   && sf->Bshift % 8 == 0
 			   && SDL_HasMMX())
 			    return BlitRGBtoRGBSurfaceAlphaMMX;
+#endif
+#ifdef __ARM_NEON__
+			if(sf->Rshift % 8 == 0
+			   && sf->Gshift % 8 == 0
+			   && sf->Bshift % 8 == 0)
+				return BlitARGBtoXRGBalphaS_neon;
 #endif
 			if((sf->Rmask | sf->Gmask | sf->Bmask) == 0xffffff)
 			{

@@ -60,6 +60,40 @@
     b          0b
 .endm
 
+
+@ void *dst, const void *src, int count, uint alpha
+.macro do_argb_alphaS bgr2rgb
+    mov        r12, #0xff
+    vdup.16    q11, r3
+    vdup.16    q12, r12
+0:
+    vld4.8     {d4-d7}, [r1]!
+    vld4.8     {d0-d3}, [r0]
+.if \bgr2rgb
+    vswp       d4, d6		@ BGR->RGB
+.endif
+    @ d = (((s-d)*a+255)>>8)+d
+    vsubl.u8   q8, d4, d0
+    vsubl.u8   q9, d5, d1
+    vsubl.u8   q10,d6, d2
+    vmul.s16   q8, q8, q11
+    vmul.s16   q9, q9, q11
+    vmul.s16   q10,q10,q11
+    vaddhn.i16 d4, q8, q12
+    vaddhn.i16 d5, q9, q12
+    vaddhn.i16 d6, q10,q12
+    vadd.i8    q2, q0
+    vadd.i8    d6, d2
+    vmov.i8    d7, d3
+    subs       r2, r2, #8
+    blt        do_argb_finish
+    vst4.8     {d4-d7}, [r0]!
+    bxeq       lr
+    nop
+    b          0b
+.endm
+
+
 do_argb_finish:
     add        r2, r2, #8
     vzip.8     d4, d5		@ RRR..|GGG.. -> RGRG..
@@ -103,5 +137,13 @@ neon_ARGBtoXRGBalpha:
 .global neon_ABGRtoXRGBalpha
 neon_ABGRtoXRGBalpha:
     do_argb_alpha 1
+
+.global neon_ARGBtoXRGBalphaS
+neon_ARGBtoXRGBalphaS:
+    do_argb_alphaS 0
+
+.global neon_ABGRtoXRGBalphaS
+neon_ABGRtoXRGBalphaS:
+    do_argb_alphaS 1
 
 @ vim:filetype=armasm
