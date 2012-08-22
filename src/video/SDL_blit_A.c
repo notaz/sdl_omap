@@ -2857,7 +2857,9 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 			if(sf->Rshift % 8 == 0
 			   && sf->Gshift % 8 == 0
 			   && sf->Bshift % 8 == 0)
+			{
 				return BlitARGBtoXRGBalphaS_neon;
+			}
 #endif
 			if((sf->Rmask | sf->Gmask | sf->Bmask) == 0xffffff)
 			{
@@ -2869,6 +2871,13 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 				return BlitRGBtoRGBSurfaceAlpha;
 			}
 		}
+#ifdef __ARM_NEON__
+		if (sf->Gmask == df->Gmask && sf->Rmask == df->Bmask && sf->Bmask == df->Rmask
+		    && sf->Rshift % 8 == 0 && sf->Gshift % 8 == 0 && sf->Bshift % 8 == 0)
+		{
+			return BlitABGRtoXRGBalphaS_neon;
+		}
+#endif
 #if SDL_ALTIVEC_BLITTERS
 		if((sf->BytesPerPixel == 4) &&
 		   !(surface->map->dst->flags & SDL_HWSURFACE) && SDL_HasAltiVec())
@@ -2926,6 +2935,15 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 				return BlitRGBtoRGBPixelAlphaMMX;
 		}
 #endif
+#ifdef __ARM_NEON__
+		if(sf->Rshift % 8 == 0
+		   && sf->Gshift % 8 == 0
+		   && sf->Bshift % 8 == 0
+		   && sf->Ashift % 8 == 0)
+		{
+			return BlitARGBtoXRGBalpha_neon;
+		}
+#endif
 		if(sf->Amask == 0xff000000)
 		{
 #if SDL_ALTIVEC_BLITTERS
@@ -2933,16 +2951,13 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 				&& SDL_HasAltiVec())
 				return BlitRGBtoRGBPixelAlphaAltivec;
 #endif
-#ifdef __ARM_NEON__
-			return BlitARGBtoXRGBalpha_neon;
-#endif
 			return BlitRGBtoRGBPixelAlpha;
 		}
 	    }
 #ifdef __ARM_NEON__
-	    if (sf->Gmask == df->Gmask && sf->Amask == 0xff000000 &&
-		((sf->Rmask == 0xff && df->Rmask == 0xff0000 && sf->Bmask == 0xff0000 && df->Bmask == 0xff) ||
-		 (sf->Rmask == 0xff0000 && df->Rmask == 0xff && sf->Bmask == 0xff && df->Bmask == 0xff0000)))
+	    if (sf->Gmask == df->Gmask && sf->Rmask == df->Bmask && sf->Bmask == df->Rmask
+		&& sf->Rshift % 8 == 0 && sf->Gshift % 8 == 0 && sf->Bshift % 8 == 0
+		&& sf->Amask == 0xff000000)
 	    {
 		return BlitABGRtoXRGBalpha_neon;
 	    }
