@@ -46,6 +46,7 @@ static int osdl_setup_omapfb(struct omapfb_state *ostate, int fd, int enabled,
 	struct omapfb_plane_info pi;
 	struct omapfb_mem_info mi;
 	int mem_blocks = *buffer_count;
+	unsigned int size_cur;
 	int ret;
 
 	memset(&pi, 0, sizeof(pi));
@@ -62,6 +63,7 @@ static int osdl_setup_omapfb(struct omapfb_state *ostate, int fd, int enabled,
 		err_perror("QUERY_MEM");
 		return -1;
 	}
+	size_cur = mi.size;
 
 	/* must disable when changing stuff */
 	if (pi.enabled) {
@@ -71,19 +73,20 @@ static int osdl_setup_omapfb(struct omapfb_state *ostate, int fd, int enabled,
 			err_perror("SETUP_PLANE");
 	}
 
-	if (mi.size < mem * mem_blocks) {
-		for (; mem_blocks > 0; mem_blocks--) {
-			mi.size = mem * mem_blocks;
-			ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
-			if (ret == 0)
-				break;
-		}
-		if (ret != 0 || mem_blocks <= 0) {
-			err("failed to allocate at least %d bytes of vram:\n", mem);
-			err_perror("SETUP_MEM");
-			return -1;
-		}
+	/* allocate more mem, if needed */
+	for (; size_cur < mem * mem_blocks && mem_blocks > 0; mem_blocks--) {
+		mi.size = mem * mem_blocks;
+		ret = ioctl(fd, OMAPFB_SETUP_MEM, &mi);
+		if (ret == 0)
+			break;
+		mi.size = size_cur;
 	}
+	if (mem_blocks <= 0) {
+		err("failed to allocate at least %d bytes of vram:\n", mem);
+		err_perror("SETUP_MEM");
+		return -1;
+	}
+
 	*buffer_count = mem_blocks;
 
 	pi.pos_x = x;
