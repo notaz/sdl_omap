@@ -107,6 +107,19 @@ static int osdl_setup_omapfb(struct omapfb_state *ostate, int fd, int enabled,
 	return 0;
 }
 
+static int osdl_setup_omapfb_enable(struct omapfb_state *ostate,
+	int fd, int enabled)
+{
+	int ret;
+
+	ostate->pi.enabled = enabled;
+	ret = ioctl(fd, OMAPFB_SETUP_PLANE, &ostate->pi);
+	if (ret != 0)
+		err_perror("SETUP_PLANE");
+
+	return ret;
+}
+
 static int read_sysfs(const char *fname, char *buff, size_t size)
 {
 	FILE *f;
@@ -340,7 +353,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
-	ret = osdl_setup_omapfb(pdata->saved_layer, fd, 1, x, y, w, h,
+	ret = osdl_setup_omapfb(pdata->saved_layer, fd, 0, x, y, w, h,
 				width * height * ((bpp + 7) / 8), buffer_count);
 	if (ret == 0) {
 		pdata->layer_x = x;
@@ -404,6 +417,13 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			pdata->xenv_up = 1;
 			pdata->xenv_mouse = (xenv_flags & XENV_CAP_MOUSE) ? 1 : 0;
 		}
+	}
+
+	ret = osdl_setup_omapfb_enable(pdata->saved_layer,
+		vout_fbdev_get_fd(pdata->fbdev), 1);
+	if (ret != 0) {
+		err("layer enable failed");
+		goto fail;
 	}
 
 	if (buffers_try != buffers_set) {
