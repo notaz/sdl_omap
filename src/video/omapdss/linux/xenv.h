@@ -14,5 +14,6 @@ int  xenv_update(int (*key_cb)(void *cb_arg, int kc, int is_pressed),
 		 void *cb_arg);
 
 int  xenv_minimize(void);
+int  xenv_keycode_to_keysym(int kc, int shift);
 void xenv_finish(void);
 

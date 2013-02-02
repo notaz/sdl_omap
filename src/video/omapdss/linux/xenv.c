@@ -58,6 +58,7 @@ struct xstuff {
 	FPTR(XPending);
 	FPTR(XLookupKeysym);
 	FPTR(XkbSetDetectableAutoRepeat);
+	FPTR(XkbKeycodeToKeysym);
 	FPTR(XStoreName);
 	FPTR(XIconifyWindow);
 	FPTR(XMoveResizeWindow);
@@ -117,6 +118,7 @@ static int x11h_init(int *xenv_flags, const char *window_title)
 	FPTR_LINK(g_xstuff, x11lib, XPending);
 	FPTR_LINK(g_xstuff, x11lib, XLookupKeysym);
 	FPTR_LINK(g_xstuff, x11lib, XkbSetDetectableAutoRepeat);
+	FPTR_LINK(g_xstuff, x11lib, XkbKeycodeToKeysym);
 	FPTR_LINK(g_xstuff, x11lib, XStoreName);
 	FPTR_LINK(g_xstuff, x11lib, XIconifyWindow);
 	FPTR_LINK(g_xstuff, x11lib, XMoveResizeWindow);
@@ -420,6 +422,15 @@ int xenv_minimize(void)
 		xenv_update(NULL, NULL, NULL, NULL);
 		return ret;
 	}
+
+	return -1;
+}
+
+int xenv_keycode_to_keysym(int kc, int shift)
+{
+	if (g_xstuff.display)
+		return g_xstuff.pXkbKeycodeToKeysym(g_xstuff.display,
+			kc, 0, shift);
 
 	return -1;
 }

@@ -237,9 +237,45 @@ static void omap_InitOSKeymap(SDL_VideoDevice *this)
 static int key_event_cb(void *cb_arg, int sdl_kc, int sdl_sc, int is_pressed)
 {
 	SDL_keysym keysym = { 0, };
+	int shift = 0;
+	SDLMod mod;
+	int ret;
 
 	keysym.sym = sdl_kc;
 	keysym.scancode = sdl_sc;
+
+	/* 0xff if pandora's Fn, so we exclude it too.. */
+	if (is_pressed && sdl_kc < 0xff && SDL_TranslateUNICODE) {
+		mod = SDL_GetModState();
+		if (!(mod & KMOD_CTRL) && (!!(mod & KMOD_SHIFT) ^ !!(mod & KMOD_CAPS)))
+			shift = 1;
+
+		/* prefer X mapping, if that doesn't work use hardcoded one */
+		ret = xenv_keycode_to_keysym(sdl_sc, shift);
+		if (ret >= 0) {
+			keysym.unicode = ret;
+			if ((mod & KMOD_CTRL)
+			    && 0x60 <= keysym.unicode && keysym.unicode <= 0x7f)
+			{
+				keysym.unicode -= 0x60;
+			}
+			/* hmh.. */
+			if ((keysym.unicode & 0xff00) == 0xff00)
+				keysym.unicode &= ~0xff00;
+		}
+		else {
+			keysym.unicode = sdl_kc;
+			if ((mod & KMOD_CTRL) && 0x60 <= sdl_kc && sdl_kc <= 0x7f)
+			{
+				keysym.unicode = sdl_kc - 0x60;
+			}
+			else if (shift && 'a' <= sdl_kc && sdl_kc <= 'z')
+			{
+				keysym.unicode = sdl_kc - 'a' + 'A';
+			}
+		}
+	}
+
 	SDL_PrivateKeyboard(is_pressed, &keysym);
 }
 
