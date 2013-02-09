@@ -72,13 +72,14 @@ static void name(SDL_BlitInfo *info) \
 	int height = info->d_height; \
 	Uint8 *src = info->s_pixels; \
 	Uint8 *dst = info->d_pixels; \
-	int srcskip = info->s_skip; \
-	int dstskip = info->d_skip; \
+	int dstBpp = info->dst->BytesPerPixel; \
+	int srcstride = width * 4 + info->s_skip; \
+	int dststride = width * dstBpp + info->d_skip; \
 \
 	while ( height-- ) { \
-            neon_name(dst, src, width); \
-	    src += width * 4 + srcskip; \
-	    dst += width * 4 + dstskip; \
+	    neon_name(dst, src, width); \
+	    src += srcstride; \
+	    dst += dststride; \
 	} \
 }
 
@@ -103,6 +104,8 @@ static void name(SDL_BlitInfo *info) \
 
 make_neon_caller(BlitABGRtoXRGBalpha_neon, neon_ABGRtoXRGBalpha)
 make_neon_caller(BlitARGBtoXRGBalpha_neon, neon_ARGBtoXRGBalpha)
+make_neon_caller(BlitABGRtoRGB565alpha_neon, neon_ABGRtoRGB565alpha)
+make_neon_caller(BlitARGBtoRGB565alpha_neon, neon_ARGBtoRGB565alpha)
 make_neon_callerS(BlitABGRtoXRGBalphaS_neon, neon_ABGRtoXRGBalphaS)
 make_neon_callerS(BlitARGBtoXRGBalphaS_neon, neon_ARGBtoXRGBalphaS)
 
@@ -2904,6 +2907,16 @@ SDL_loblit SDL_CalculateAlphaBlit(SDL_Surface *surface, int blit_index)
 	   df->Bmask == 0x1f && SDL_HasAltiVec())
             return Blit32to565PixelAlphaAltivec;
         else
+#endif
+#ifdef __ARM_NEON__
+	    if(sf->BytesPerPixel == 4 && sf->Amask == 0xff000000
+	       && sf->Gmask == 0xff00 && df->Gmask == 0x7e0) {
+	        if((sf->Bmask >> 3) == df->Bmask || (sf->Rmask >> 3) == df->Rmask)
+	            return BlitARGBtoRGB565alpha_neon;
+	        else
+	            return BlitABGRtoRGB565alpha_neon;
+	    }
+	    else
 #endif
 	    if(sf->BytesPerPixel == 4 && sf->Amask == 0xff000000
 	       && sf->Gmask == 0xff00
