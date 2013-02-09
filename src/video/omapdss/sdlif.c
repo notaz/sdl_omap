@@ -133,7 +133,10 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		}
 	}
 
-	doublebuf = (flags & SDL_DOUBLEBUF) ? 1 : 0;
+	/* always use doublebuf, when SDL_DOUBLEBUF is not set,
+	 * we'll have to blit manually on UpdateRects() */
+	doublebuf = 1;
+
 	fbmem = osdl_video_set_mode(pdata,
 		pdata->border_l, pdata->border_r, pdata->border_t, pdata->border_b,
 		width, height, bpp, &doublebuf, this->wm_title);
@@ -143,10 +146,23 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		    pdata->border_l, pdata->border_r, pdata->border_t, pdata->border_b);
 		return NULL;
 	}
-	if ((flags & SDL_DOUBLEBUF) && !doublebuf) {
-		log("doublebuffering could not be set\n");
-		flags &= ~SDL_DOUBLEBUF;
+	pdata->front_buffer = osdl_video_get_active_buffer(pdata);
+	if (pdata->front_buffer == NULL) {
+		err("osdl_video_get_active_buffer failed\n");
+		return NULL;
 	}
+
+	if (!doublebuf) {
+		if (flags & SDL_DOUBLEBUF) {
+			log("doublebuffering could not be set\n");
+			flags &= ~SDL_DOUBLEBUF;
+		}
+		/* XXX: could just malloc a back buffer here instead */
+		pdata->cfg_force_directbuf = 1;
+	}
+
+	if (!(flags & SDL_DOUBLEBUF) && pdata->cfg_force_directbuf)
+		fbmem = pdata->front_buffer;
 
 	flags |= SDL_FULLSCREEN | SDL_HWSURFACE;
 	unhandled_flags = flags & ~(SDL_FULLSCREEN | SDL_HWSURFACE | SDL_DOUBLEBUF);
@@ -187,10 +203,27 @@ static void omap_UnlockHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
 static int omap_FlipHWSurface(SDL_VideoDevice *this, SDL_Surface *surface)
 {
 	struct SDL_PrivateVideoData *pdata = this->hidden;
+	static int warned;
 
 	trace("%p", surface);
 
-	surface->pixels = osdl_video_flip(pdata);
+	if (surface != this->screen) {
+		if (!warned) {
+			err("flip surface %p which is not screen %p?\n",
+				surface, this->screen);
+			warned = 1;
+		}
+		return;
+	}
+
+	if (surface->flags & SDL_DOUBLEBUF)
+		surface->pixels = osdl_video_flip(pdata);
+	else {
+		if (surface->pixels != pdata->front_buffer)
+			memcpy(surface->pixels, pdata->front_buffer,
+				surface->pitch * surface->h);
+	}
+
 	pdata->app_uses_flip = 1;
 
 	return 0;
@@ -217,15 +250,47 @@ static int omap_SetColors(SDL_VideoDevice *this, int firstcolor, int ncolors, SD
 static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 {
 	struct SDL_PrivateVideoData *pdata = this->hidden;
+	SDL_Surface *screen = this->screen;
+	Uint16 *src, *dst;
+	int i, x, y, w, h;
 
 	trace("%d, %p", nrects, rects);
 
-	/* for doublebuf forcing on apps */
-	if (nrects == 1 && rects->x == 0 && rects->y == 0
-	    && !pdata->app_uses_flip && (this->screen->flags & SDL_DOUBLEBUF)
-	    && rects->w == this->screen->w && rects->h == this->screen->h)
-	{
-		this->screen->pixels = osdl_video_flip(pdata);
+	if (screen->flags & SDL_DOUBLEBUF) {
+		if (nrects == 1 && rects->x == 0 && rects->y == 0
+		    && (rects->w == screen->w || rects->w == 0)
+		    && (rects->h == screen->h || rects->h == 0)
+		    && !pdata->app_uses_flip)
+		{
+			screen->pixels = osdl_video_flip(pdata);
+		}
+		return;
+	}
+
+	src = screen->pixels;
+	dst = pdata->front_buffer;
+	if (src == dst)
+		return;
+
+	for (i = 0; i < nrects; i++) {
+		/* this supposedly has no clipping, but we'll do it anyway */
+		x = rects[i].x, y = rects[i].y, w = rects[i].w, h = rects[i].h;
+		if (x < 0)
+			w += x, x = 0;
+		else if (x + w > screen->w)
+			w = screen->w - x;
+		if (w <= 0)
+			continue;
+
+		if (y < 0)
+			h += y, y = 0;
+		else if (y + h > screen->h)
+			h = screen->h - y;
+
+		for (; h > 0; y++, h--)
+			memcpy(dst + y * screen->pitch / 2 + x,
+			       src + y * screen->pitch / 2 + x,
+			       w * 2);
 	}
 }
 

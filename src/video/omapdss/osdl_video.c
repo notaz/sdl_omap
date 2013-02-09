@@ -454,6 +454,14 @@ void *osdl_video_flip(struct SDL_PrivateVideoData *pdata)
 	return ret;
 }
 
+void *osdl_video_get_active_buffer(struct SDL_PrivateVideoData *pdata)
+{
+	if (pdata->fbdev == NULL)
+		return NULL;
+
+	return vout_fbdev_get_active_mem(pdata->fbdev);
+}
+
 int osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause)
 {
 	struct omapfb_state *state = pdata->saved_layer;

@@ -75,6 +75,15 @@ SDL_OMAP_FORCE_DOUBLEBUF:
   Note that if app isn't updating whole buffer each frame, it will glitch.
   This is the same as specifying SDL_DOUBLEBUF to SDL_SetVideoMode.
 
+SDL_OMAP_FORCE_DIRECTBUF:
+  When double buffering is not used, this option forces all blits to go
+  directly to the framebuffer (SDL_UpdateRect[s]() has no effect), which will
+  give speed but may cause flickering. Otherwise all blits will go to offscreen
+  buffer and SDL_UpdateRect[s]() is needed to update the screen (this is how
+  standard SDL works too).
+  When double buffering is used, this option has no effect (all blits always
+  go to back buffer that's displayed after flip).
+
 SDL_OMAP_NO_TS_TRANSLATE:
   Disable automatic touchscreen screen -> layer coordinate translation,
   return real screen coordinates.
@@ -96,6 +105,9 @@ force_vsync = 1/0
 
 # same as SDL_OMAP_FORCE_DOUBLEBUF
 force_doublebuf = 1/0
+
+# same as SDL_OMAP_FORCE_DIRECTBUF
+force_directbuf = 1/0
 
 # same as SDL_OMAP_NO_TS_TRANSLATE
 no_ts_translate = 1/0

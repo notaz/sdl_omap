@@ -175,6 +175,17 @@ int vout_fbdev_get_fd(struct vout_fbdev *fbdev)
 	return fbdev->fd;
 }
 
+void *vout_fbdev_get_active_mem(struct vout_fbdev *fbdev)
+{
+	int i;
+
+	i = fbdev->buffer_write - 1;
+	if (i < 0)
+		i = fbdev->buffer_count - 1;
+
+	return (char *)fbdev->mem + fbdev->fb_size * i;
+}
+
 struct vout_fbdev *vout_fbdev_init(const char *fbdev_name, int *w, int *h, int bpp, int buffer_cnt)
 {
 	struct vout_fbdev *fbdev;

@@ -27,6 +27,7 @@
 
 struct SDL_PrivateVideoData {
 	struct vout_fbdev *fbdev;
+	void *front_buffer;
 	void *saved_layer;
 	/* physical screen size, should match touchscreen */
 	int phys_w, phys_h;
@@ -42,6 +43,7 @@ struct SDL_PrivateVideoData {
 	unsigned int app_uses_flip:1;
 	unsigned int cfg_force_vsync:1;
 	unsigned int cfg_force_doublebuf:1;
+	unsigned int cfg_force_directbuf:1;
 	unsigned int cfg_no_ts_translate:1;
 	unsigned int cfg_ts_force_tslib:1;
 };
@@ -51,6 +53,7 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 			  int width, int height, int bpp, int *doublebuf,
 			  const char *wm_title);
 void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
+void *osdl_video_get_active_buffer(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause);
 void  osdl_video_finish(struct SDL_PrivateVideoData *pdata);

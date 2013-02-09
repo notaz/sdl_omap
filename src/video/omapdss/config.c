@@ -91,6 +91,10 @@ void omapsdl_config(struct SDL_PrivateVideoData *pdata)
 			pdata->cfg_force_doublebuf = !!strtol(p, NULL, 0);
 			continue;
 		}
+		else if (check_token_eq(&p, "force_directbuf")) {
+			pdata->cfg_force_directbuf = !!strtol(p, NULL, 0);
+			continue;
+		}
 		else if (check_token_eq(&p, "no_ts_translate")) {
 			pdata->cfg_no_ts_translate = !!strtol(p, NULL, 0);
 			continue;
@@ -116,6 +120,9 @@ void omapsdl_config_from_env(struct SDL_PrivateVideoData *pdata)
 	tmp = getenv("SDL_OMAP_FORCE_DOUBLEBUF");
 	if (tmp != NULL)
 		pdata->cfg_force_doublebuf = !!strtol(tmp, NULL, 0);
+	tmp = getenv("SDL_OMAP_FORCE_DIRECTBUF");
+	if (tmp != NULL)
+		pdata->cfg_force_directbuf = !!strtol(tmp, NULL, 0);
 	tmp = getenv("SDL_OMAP_NO_TS_TRANSLATE");
 	if (tmp != NULL)
 		pdata->cfg_no_ts_translate = !!strtol(tmp, NULL, 0);
