@@ -251,19 +251,20 @@ static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 {
 	struct SDL_PrivateVideoData *pdata = this->hidden;
 	SDL_Surface *screen = this->screen;
-	Uint16 *src, *dst;
-	int i, x, y, w, h;
+	int fullscreen_blit = 0;
+	int i, Bpp, x, y, w, h;
+	char *src, *dst;
 
 	trace("%d, %p", nrects, rects);
 
-	if (screen->flags & SDL_DOUBLEBUF) {
-		if (nrects == 1 && rects->x == 0 && rects->y == 0
+	fullscreen_blit =
+		nrects == 1 && rects->x == 0 && rects->y == 0
 		    && (rects->w == screen->w || rects->w == 0)
-		    && (rects->h == screen->h || rects->h == 0)
-		    && !pdata->app_uses_flip)
-		{
+		    && (rects->h == screen->h || rects->h == 0);
+
+	if (screen->flags & SDL_DOUBLEBUF) {
+		if (fullscreen_blit && !pdata->app_uses_flip)
 			screen->pixels = osdl_video_flip(pdata);
-		}
 		return;
 	}
 
@@ -272,7 +273,12 @@ static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 	if (src == dst)
 		return;
 
-	for (i = 0; i < nrects; i++) {
+	if (fullscreen_blit) {
+		memcpy(dst, src, screen->pitch * screen->h);
+		return;
+	}
+
+	for (i = 0, Bpp = screen->format->BytesPerPixel; i < nrects; i++) {
 		/* this supposedly has no clipping, but we'll do it anyway */
 		x = rects[i].x, y = rects[i].y, w = rects[i].w, h = rects[i].h;
 		if (x < 0)
@@ -288,9 +294,9 @@ static void omap_UpdateRects(SDL_VideoDevice *this, int nrects, SDL_Rect *rects)
 			h = screen->h - y;
 
 		for (; h > 0; y++, h--)
-			memcpy(dst + y * screen->pitch / 2 + x,
-			       src + y * screen->pitch / 2 + x,
-			       w * 2);
+			memcpy(dst + y * screen->pitch + x * Bpp,
+			       src + y * screen->pitch + x * Bpp,
+			       w * Bpp);
 	}
 }
 
