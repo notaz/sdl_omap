@@ -19,7 +19,12 @@
 .macro do_argb bgr2rgb
     vdup.i8    d0, r3
 0:
+    cmp        r2, #8
+    pld        [r1, #64*2]
+    blt        3f
+1:
     vld4.8     {d4-d7}, [r1]!
+2:
 .if \bgr2rgb
     vswp       d4, d6		@ BGR->RGB
 .endif
@@ -30,6 +35,23 @@
     bxeq       lr
     nop
     b          0b
+
+3:
+    @ unaligned ending nastiness :(
+    add        r12, r1, #8*4
+    lsr        r12, #12
+    cmp        r12, r1, lsr #12 @ crossing page?
+    beq        1b               @ nope, overreading is safe
+
+    @ _wb_'s bad luck, do some slow stuff here
+    push       {r0-r2,lr}
+    sub        sp, #8*4
+    mov        r0, sp
+    lsl        r2, #2
+    bl         memcpy
+    vld4.8     {d4-d7}, [sp]!
+    pop        {r0-r2,lr}
+    b          2b
 .endm
 
 @ void *dst, const void *src, int count, uint global_alpha
@@ -39,11 +61,16 @@
     vdup.16    q11, r3
 .endif
     vdup.i16   q12, r12
+
 0:
     pld        [r1, #64*2]
+    cmp        r2, #8
     pld        [r0, #64*2]
+    blt        3f
+1:
     vld4.8     {d4-d7}, [r1]!
     vld4.8     {d0-d3}, [r0]
+2:
 .if \bgr2rgb
     vswp       d4, d6		@ BGR->RGB
 .endif
@@ -69,6 +96,35 @@
     bxeq       lr
     nop
     b          0b
+
+3:
+    @ unaligned ending nastiness :(
+    add        r3,  r0, #8*4
+    add        r12, r1, #8*4
+    lsr        r3,  #12
+    lsr        r12, #12
+    cmp        r3,  r0, lsr #12 @ are we crossing
+    cmpeq      r12, r1, lsr #12 @ the page boundary?
+    beq        1b               @ nope, overreading is safe
+
+    @ _wb_'s bad luck, do some slow stuff here
+    push       {r0-r2, lr}
+    vpush      {q11, q12}
+    sub        sp, #8*4*2
+    lsl        r2, #2
+    mov        r1, r0
+    mov        r0, sp
+    bl         memcpy
+    ldr        r2, [sp, #8*4*2 + 16*2 + 8] @ stacked r2
+    add        r0, sp, #8*4
+    ldr        r1, [sp, #8*4*2 + 16*2 + 4]
+    lsl        r2, #2
+    bl         memcpy
+    vld4.8     {d0-d3}, [sp]!
+    vld4.8     {d4-d7}, [sp]!
+    vpop       {q11, q12}
+    pop        {r0-r2, lr}
+    b          2b
 .endm
 
 
@@ -109,7 +165,10 @@ do_argb_finish:
     vdup.i16   q12, r12
 0:
     pld        [r1, #64*2]
+    cmp        r2, #8
     pld        [r0, #64*2]
+    blt        3f
+1:
     vld4.8     {d4-d7}, [r1]!
     vld2.8     {d1-d2}, [r0]
 .if \bgr2rgb
@@ -146,6 +205,19 @@ do_argb_finish:
     bxeq       lr
     nop
     b          0b
+
+3:
+    @ unaligned ending nastiness :(
+    add        r3,  r0, #8*2
+    add        r12, r1, #8*4
+    lsr        r3,  #12
+    lsr        r12, #12
+    cmp        r3,  r0, lsr #12 @ are we crossing
+    cmpeq      r12, r1, lsr #12 @ the page boundary?
+    beq        1b               @ nope, overreading is safe
+
+    nop
+    bx         lr               @ abandon ship! (until someone complains)
 .endm
 
 
