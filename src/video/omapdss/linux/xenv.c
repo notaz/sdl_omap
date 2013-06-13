@@ -63,8 +63,11 @@ struct xstuff {
 	FPTR(XIconifyWindow);
 	FPTR(XMoveResizeWindow);
 	FPTR(XInternAtom);
+	FPTR(XAllocWMHints);
+	FPTR(XGetWMHints);
 	FPTR(XSetWMHints);
 	FPTR(XSync);
+	FPTR(XFree);
 };
 
 static struct xstuff g_xstuff;
@@ -123,8 +126,11 @@ static int x11h_init(int *xenv_flags, const char *window_title)
 	FPTR_LINK(g_xstuff, x11lib, XIconifyWindow);
 	FPTR_LINK(g_xstuff, x11lib, XMoveResizeWindow);
 	FPTR_LINK(g_xstuff, x11lib, XInternAtom);
+	FPTR_LINK(g_xstuff, x11lib, XAllocWMHints);
+	FPTR_LINK(g_xstuff, x11lib, XGetWMHints);
 	FPTR_LINK(g_xstuff, x11lib, XSetWMHints);
 	FPTR_LINK(g_xstuff, x11lib, XSync);
+	FPTR_LINK(g_xstuff, x11lib, XFree);
 
 	//XInitThreads();
 
@@ -261,7 +267,7 @@ static int x11h_minimize(void)
 	Window window = g_xstuff.window;
 	int screen = DefaultScreen(g_xstuff.display);
 	int display_width, display_height;
-	XWMHints wm_hints;
+	XWMHints *wm_hints;
 	XEvent evt;
 
 	g_xstuff.pXWithdrawWindow(display, window, screen);
@@ -270,9 +276,16 @@ static int x11h_minimize(void)
 	g_xstuff.pXChangeWindowAttributes(display, window,
 		CWOverrideRedirect, &attributes);
 
-	wm_hints.flags = StateHint;
-	wm_hints.initial_state = IconicState;
-	g_xstuff.pXSetWMHints(display, window, &wm_hints);
+	wm_hints = g_xstuff.pXGetWMHints(display, window);
+	if (wm_hints == NULL) {
+		wm_hints = XAllocWMHints();
+		wm_hints->flags = 0;
+	}
+	wm_hints->flags |= StateHint;
+	wm_hints->initial_state = IconicState;
+	g_xstuff.pXSetWMHints(display, window, wm_hints);
+	g_xstuff.pXFree(wm_hints);
+	wm_hints = NULL;
 
 	g_xstuff.pXMapWindow(display, window);
 
