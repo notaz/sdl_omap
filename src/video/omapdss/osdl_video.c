@@ -525,6 +525,11 @@ int osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause)
 	return 0;
 }
 
+int osdl_video_get_window(void **display, int *screen, void **window)
+{
+	return xenv_get_window(display, screen, window);
+}
+
 void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 {
 	static const char *fbname;

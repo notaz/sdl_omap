@@ -25,6 +25,8 @@
 #define dbg(...)
 #endif
 
+struct x11reuse_context;
+
 struct SDL_PrivateVideoData {
 	struct vout_fbdev *fbdev;
 	void *front_buffer;
@@ -38,6 +40,7 @@ struct SDL_PrivateVideoData {
 	/* phys -> layer coord multipliers (16.16) */
 	int ts_xmul, ts_ymul;
 	/* misc/config */
+	struct x11reuse_context *x11reuse_context;
 	unsigned int xenv_up:1;
 	unsigned int xenv_mouse:1;
 	unsigned int app_uses_flip:1;
@@ -46,6 +49,9 @@ struct SDL_PrivateVideoData {
 	unsigned int cfg_force_directbuf:1;
 	unsigned int cfg_no_ts_translate:1;
 	unsigned int cfg_ts_force_tslib:1;
+	/* delayed icon surface */
+	struct SDL_Surface *delayed_icon;
+	void *delayed_icon_mask;
 };
 
 void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
@@ -56,6 +62,7 @@ void *osdl_video_flip(struct SDL_PrivateVideoData *pdata);
 void *osdl_video_get_active_buffer(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_detect_screen(struct SDL_PrivateVideoData *pdata);
 int   osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause);
+int   osdl_video_get_window(void **display, int *screen, void **window);
 void  osdl_video_finish(struct SDL_PrivateVideoData *pdata);
 
 void omapsdl_input_init(void);

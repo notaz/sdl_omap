@@ -13,6 +13,7 @@
 #include "../SDL_pixels_c.h"
 #include "../../events/SDL_events_c.h"
 
+#include "SDL_x11reuse.h"
 #include "linux/xenv.h"
 #include "osdl.h"
 
@@ -31,6 +32,7 @@ static void omap_free(SDL_VideoDevice *device)
 
 static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 {
+	struct SDL_PrivateVideoData *pdata = this->hidden;
 	const char *tmp;
 	int w, h, ret;
 
@@ -40,20 +42,22 @@ static int omap_VideoInit(SDL_VideoDevice *this, SDL_PixelFormat *vformat)
 	vformat->BitsPerPixel = 16;
 
 	omapsdl_input_init();
-	omapsdl_config(this->hidden);
+	omapsdl_config(pdata);
 
 	tmp = getenv("SDL_OMAP_DEFAULT_MODE");
 	if (tmp != NULL && sscanf(tmp, "%dx%d", &w, &h) == 2) {
 		this->info.current_w = w;
 		this->info.current_h = h;
 	}
-	else if (osdl_video_detect_screen(this->hidden) == 0) {
-		this->info.current_w = this->hidden->phys_w;
-		this->info.current_h = this->hidden->phys_h;
+	else if (osdl_video_detect_screen(pdata) == 0) {
+		this->info.current_w = pdata->phys_w;
+		this->info.current_h = pdata->phys_h;
 	}
 
 	this->handles_any_size = 1;
 	this->info.hw_available = 1;
+
+	pdata->x11reuse_context = x11reuse_init();
 
 	return 0;
 }
@@ -183,6 +187,17 @@ static SDL_Surface *omap_SetVideoMode(SDL_VideoDevice *this, SDL_Surface *curren
 		int v_height = height - (pdata->border_t + pdata->border_b);
 		pdata->ts_xmul = (v_width  << 16) / pdata->layer_w;
 		pdata->ts_ymul = (v_height << 16) / pdata->layer_h;
+	}
+
+	if (pdata->delayed_icon != NULL) {
+		this->SetIcon(this, pdata->delayed_icon,
+			pdata->delayed_icon_mask);
+		SDL_FreeSurface(pdata->delayed_icon);
+		pdata->delayed_icon = NULL;
+		if (pdata->delayed_icon_mask) {
+			free(pdata->delayed_icon_mask);
+			pdata->delayed_icon_mask = NULL;
+		}
 	}
 
 	return current;
@@ -441,6 +456,55 @@ static void omap_PumpEvents(SDL_VideoDevice *this)
 		read_tslib ? ts_event_cb : NULL, this);
 }
 
+static void omap_SetCaption(SDL_VideoDevice *this, const char *title, const char *icon)
+{
+	void *display = NULL, *window = NULL;
+	int screen = 0;
+	int ret;
+
+	ret = osdl_video_get_window(&display, &screen, &window);
+	if (ret == 0) {
+		x11reuse_SetCaption(this->hidden->x11reuse_context,
+			display, screen, window, title, icon);
+	}
+}
+
+static void omap_SetIcon(SDL_VideoDevice *this, SDL_Surface *icon, Uint8 *mask)
+{
+	struct SDL_PrivateVideoData *pdata = this->hidden;
+	void *display = NULL, *window = NULL;
+	int screen = 0;
+	int ret;
+
+	ret = osdl_video_get_window(&display, &screen, &window);
+	if (ret == 0) {
+		x11reuse_SetIcon(pdata->x11reuse_context,
+			display, screen, window, icon, mask);
+	}
+	else {
+		SDL_Surface *old_icon = pdata->delayed_icon;
+		void *old_icon_mask = pdata->delayed_icon_mask;
+		int mask_size = ((icon->w + 7) / 8) * icon->h;
+
+		pdata->delayed_icon = SDL_ConvertSurface(icon,
+					icon->format, icon->flags);
+		if (pdata->delayed_icon != NULL) {
+			memcpy(pdata->delayed_icon->pixels, icon->pixels,
+				icon->pitch * icon->h);
+		}
+		if (mask != NULL) {
+			pdata->delayed_icon_mask = malloc(mask_size);
+			if (pdata->delayed_icon_mask)
+				memcpy(pdata->delayed_icon_mask, mask, mask_size);
+		}
+
+		if (old_icon != NULL)
+			SDL_FreeSurface(old_icon);
+		if (old_icon_mask)
+			free(old_icon_mask);
+	}
+}
+
 static SDL_VideoDevice *omap_create(int devindex)
 {
 	SDL_VideoDevice *this;
@@ -464,6 +528,8 @@ static SDL_VideoDevice *omap_create(int devindex)
 	this->VideoQuit = omap_VideoQuit;
 	this->InitOSKeymap = omap_InitOSKeymap;
 	this->PumpEvents = omap_PumpEvents;
+	this->SetCaption = omap_SetCaption;
+	this->SetIcon = omap_SetIcon;
 	this->free = omap_free;
 
 	return this;

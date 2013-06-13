@@ -448,6 +448,20 @@ int xenv_keycode_to_keysym(int kc, int shift)
 	return -1;
 }
 
+int xenv_get_window(void **display, int *screen, void **window)
+{
+	*display = *window = NULL;
+	*screen = 0;
+	if (g_xstuff.display && g_xstuff.window) {
+		*display = g_xstuff.display;
+		*screen = DefaultScreen(g_xstuff.display);
+		*window = (void *)g_xstuff.window;
+		return 0;
+	}
+
+	return -1;
+}
+
 void xenv_finish(void)
 {
 	// TODO: cleanup X?
