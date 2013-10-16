@@ -92,6 +92,9 @@ SDL_OMAP_TS_FORCE_TSLIB:
   Always use tslib to read touchscreen. Without this, use X events when they
   are available (this gives external input device support).
 
+SDL_OMAP_NO_PANDORA_TV:
+  This disables automatic framebuffer redirection to TV on pandora.
+
 
 Config file
 -----------

@@ -29,7 +29,47 @@ struct omapfb_state {
 	struct omapfb_mem_info mi;
 	struct omapfb_plane_info pi_old;
 	struct omapfb_mem_info mi_old;
+	int tv_layer;
 };
+
+static int read_sysfs(const char *fname, char *buff, size_t size);
+
+static int switch_tv_layer(struct omapfb_state *ostate, int layer)
+{
+	const char *tmp;
+	struct stat st;
+	char buf[128];
+	int ret;
+
+	tmp = getenv("SDL_OMAP_NO_PANDORA_TV");
+	if (tmp != NULL && !!strtol(tmp, NULL, 0))
+		return 0;
+
+	if (stat("/proc/pandora", &st) != 0)
+		/* not pandora, don't mess with stuff */
+		return 0;
+
+	ret = read_sysfs("/sys/devices/platform/omapdss/display1/enabled",
+		buf, sizeof(buf));
+	if (ret < 0) {
+		err("couldn't check display1 state");
+		return -1;
+	}
+
+	if (strtol(buf, NULL, 0) == 0)
+		/* TV-out not enabled */
+		return 0;
+
+	snprintf(buf, sizeof(buf),
+		 "sudo -n /usr/pandora/scripts/op_tvout.sh -l %d", layer);
+	ret = system(buf);
+	if (ret >= 0) {
+		ostate->tv_layer = layer;
+		ret = 0;
+	}
+
+	return ret;
+}
 
 static const char *get_fb_device(void)
 {
@@ -111,6 +151,8 @@ static int osdl_setup_omapfb_enable(struct omapfb_state *ostate,
 	int fd, int enabled)
 {
 	int ret;
+
+	switch_tv_layer(ostate, 1);
 
 	ostate->pi.enabled = enabled;
 	ret = ioctl(fd, OMAPFB_SETUP_PLANE, &ostate->pi);
@@ -295,7 +337,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 	}
 
 	/* FIXME: assuming layer doesn't change here */
-	if (pdata->saved_layer == NULL) {
+	if (pdata->layer_state == NULL) {
 		struct omapfb_state *slayer;
 		slayer = calloc(1, sizeof(*slayer));
 		if (slayer == NULL)
@@ -313,7 +355,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 			goto out;
 		}
 
-		pdata->saved_layer = slayer;
+		pdata->layer_state = slayer;
 	}
 
 	tmp = getenv("SDL_OMAP_LAYER_SIZE");
@@ -353,7 +395,7 @@ static int osdl_setup_omap_layer(struct SDL_PrivateVideoData *pdata,
 
 	x = screen_w / 2 - w / 2;
 	y = screen_h / 2 - h / 2;
-	ret = osdl_setup_omapfb(pdata->saved_layer, fd, 0, x, y, w, h,
+	ret = osdl_setup_omapfb(pdata->layer_state, fd, 0, x, y, w, h,
 				width * height * ((bpp + 7) / 8), buffer_count);
 	if (ret == 0) {
 		pdata->layer_x = x;
@@ -419,7 +461,7 @@ void *osdl_video_set_mode(struct SDL_PrivateVideoData *pdata,
 		}
 	}
 
-	ret = osdl_setup_omapfb_enable(pdata->saved_layer,
+	ret = osdl_setup_omapfb_enable(pdata->layer_state,
 		vout_fbdev_get_fd(pdata->fbdev), 1);
 	if (ret != 0) {
 		err("layer enable failed");
@@ -464,7 +506,7 @@ void *osdl_video_get_active_buffer(struct SDL_PrivateVideoData *pdata)
 
 int osdl_video_pause(struct SDL_PrivateVideoData *pdata, int is_pause)
 {
-	struct omapfb_state *state = pdata->saved_layer;
+	struct omapfb_state *state = pdata->layer_state;
 	struct omapfb_plane_info pi;
 	struct omapfb_mem_info mi;
 	int enabled;
@@ -541,9 +583,12 @@ void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 	}
 
 	/* restore the OMAP layer */
-	if (pdata->saved_layer != NULL) {
-		struct omapfb_state *slayer = pdata->saved_layer;
+	if (pdata->layer_state != NULL) {
+		struct omapfb_state *slayer = pdata->layer_state;
 		int fd;
+
+		if (slayer->tv_layer)
+			switch_tv_layer(slayer, 0);
 
 		fd = open(fbname, O_RDWR);
 		if (fd != -1) {
@@ -560,7 +605,7 @@ void osdl_video_finish(struct SDL_PrivateVideoData *pdata)
 			close(fd);
 		}
 		free(slayer);
-		pdata->saved_layer = NULL;
+		pdata->layer_state = NULL;
 	}
 
 	if (pdata->xenv_up) {

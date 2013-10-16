@@ -30,7 +30,7 @@ struct x11reuse_context;
 struct SDL_PrivateVideoData {
 	struct vout_fbdev *fbdev;
 	void *front_buffer;
-	void *saved_layer;
+	void *layer_state;
 	/* physical screen size, should match touchscreen */
 	int phys_w, phys_h;
 	/* layer */
