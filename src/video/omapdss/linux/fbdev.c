@@ -24,6 +24,10 @@
 
 #define PFX "fbdev: "
 
+#ifndef OMAPFB_WAITFORVSYNC_FRAME
+#define OMAPFB_WAITFORVSYNC_FRAME _IOWR('O', 70, int)
+#endif
+
 struct vout_fbdev {
 	int	fd;
 	void	*mem;
@@ -36,6 +40,8 @@ struct vout_fbdev {
 	int	top_border, bottom_border;
 	void	*mem_saved;
 	size_t	mem_saved_size;
+	unsigned long vsync_ioctl;
+	int	vsync_arg;
 };
 
 void *vout_fbdev_flip(struct vout_fbdev *fbdev)
@@ -61,8 +67,8 @@ void *vout_fbdev_flip(struct vout_fbdev *fbdev)
 
 void vout_fbdev_wait_vsync(struct vout_fbdev *fbdev)
 {
-	int arg = 0;
-	ioctl(fbdev->fd, FBIO_WAITFORVSYNC, &arg);
+	if (fbdev->vsync_ioctl != 0)
+		ioctl(fbdev->fd, fbdev->vsync_ioctl, &fbdev->vsync_arg);
 }
 
 /* it is recommended to call vout_fbdev_clear() before this */
@@ -231,8 +237,18 @@ struct vout_fbdev *vout_fbdev_init(const char *fbdev_name, int *w, int *h, int b
 	memset(fbdev->mem, 0, fbdev->mem_size);
 
 	// some checks
+	// screen was unblanked by vout_fbdev_resize(), so vsync should work
+	// first try pandora's adaptive vsync hack, then the default one
 	ret = 0;
-	ret = ioctl(fbdev->fd, FBIO_WAITFORVSYNC, &ret);
+	ret = ioctl(fbdev->fd, OMAPFB_WAITFORVSYNC_FRAME, &ret);
+	if (ret == 0)
+		fbdev->vsync_ioctl = OMAPFB_WAITFORVSYNC_FRAME;
+	if (ret != 0) {
+		ret = 0;
+		ret = ioctl(fbdev->fd, FBIO_WAITFORVSYNC, &ret);
+		if (ret == 0)
+			fbdev->vsync_ioctl = FBIO_WAITFORVSYNC;
+	}
 	if (ret != 0)
 		fprintf(stderr, PFX "Warning: vsync doesn't seem to be supported\n");
 
