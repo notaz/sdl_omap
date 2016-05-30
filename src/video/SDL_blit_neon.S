@@ -63,13 +63,13 @@
     vdup.i16   q12, r12
 
 0:
-    pld        [r1, #64*2]
     cmp        r2, #8
-    pld        [r0, #64*2]
     blt        3f
 1:
     vld4.8     {d4-d7}, [r1]!
+    pld        [r1, #64*2]
     vld4.8     {d0-d3}, [r0]
+    pld        [r0, #64+32]
 2:
 .if \bgr2rgb
     vswp       d4, d6		@ BGR->RGB
@@ -164,13 +164,13 @@ do_argb_finish:
 .endif
     vdup.i16   q12, r12
 0:
-    pld        [r1, #64*2]
     cmp        r2, #8
-    pld        [r0, #64*2]
     blt        3f
 1:
     vld4.8     {d4-d7}, [r1]!
+    pld        [r1, #64*2]
     vld2.8     {d1-d2}, [r0]
+    pld        [r0, #64+32]
 .if \bgr2rgb
     vswp       d4, d6		@ BGR->RGB
 .endif

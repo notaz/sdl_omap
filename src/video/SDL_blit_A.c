@@ -77,6 +77,7 @@ static void name(SDL_BlitInfo *info) \
 	int dststride = width * dstBpp + info->d_skip; \
 \
 	while ( height-- ) { \
+	    __builtin_prefetch(dst + dststride); \
 	    neon_name(dst, src, width); \
 	    src += srcstride; \
 	    dst += dststride; \
